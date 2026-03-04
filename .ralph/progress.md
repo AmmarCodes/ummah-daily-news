@@ -8,6 +8,48 @@ Started: Wed Mar 4 16:33:26 +03 2026
 
 ---
 
+## [Wed Mar 04 18:11:08 +0300 2026] - US-007: Update build configuration for Cloudflare Workers
+
+Thread:
+Run: 20260304-171312-28499 (iteration 5)
+Run log: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-28499-iter-5.log
+Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-28499-iter-5.md
+
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: b4da632 build: migrate to Cloudflare Workers runtime
+- Post-commit status: clean
+- Verification:
+  - Command: npx vitest run --reporter=verbose -> PASS (17/17 tests)
+  - Command: npm run build -> PASS
+  - Command: npm run lint -> PASS
+  - Command: npx wrangler deploy --dry-run -> PASS
+- Files changed:
+  - esbuild.config.ts (migrated from Lambda to Workers build config)
+  - package.json (added type: module, removed jsdom, added linkedom)
+  - package-lock.json (updated dependencies)
+  - yarn.lock (updated dependencies)
+  - src/news-collection/browser.ts (replaced JSDOM with linkedom)
+  - src/news-collection/extractSANAArticleContent.ts (fixed type compatibility for linkedom)
+  - src/news-collection/telegram/telegramScraper.ts (removed Node.js APIs, updated for linkedom)
+  - tests/extractSANAArticleContent.test.ts (fixed mock path from ../src/browser to ../src/news-collection/browser)
+- What was implemented:
+  Migrated build configuration from AWS Lambda Node.js runtime to Cloudflare Workers browser runtime. Updated esbuild.config.ts to build single worker script from src/index.ts (entry point) instead of multiple Lambda functions from src/lambda/. Changed platform from "node" to "browser", target from "node22" to "esnext". Removed AWS-specific external dependencies (aws-sdk, @aws-sdk/client-s3) and Lambda-specific asset copying (channels.json, xhr-sync-worker.js). Output changed from lambda/{functionName}/ to dist/worker.js. Added "type": "module" to package.json for ESM compatibility (resolves esbuild CommonJS reparse warning). Replaced JSDOM (Node.js DOM implementation) with linkedom (Workers-compatible DOM) for HTML parsing in browser.ts, telegramScraper.ts, and extractSANAArticleContent.ts. Removed Node.js-specific APIs like process.memoryUsage() from telegramScraper.ts. Fixed test mock path in extractSANAArticleContent.test.ts from incorrect ../src/browser to correct ../src/news-collection/browser. All quality gates passing: 17/17 tests, lint, build, wrangler deploy dry-run. Worker bundle: 1.67 MB (366 KB gzipped).
+
+- **Learnings for future iterations:**
+  - linkedom is a lightweight DOM implementation compatible with Cloudflare Workers browser runtime
+  - JSDOM cannot be used in Workers - it requires Node.js built-in modules (fs, path, vm, http, https, etc.)
+  - linkedom's Document type is different from standard DOM types - may require type assertions for compatibility
+  - Cloudflare Workers platform with esnext target enables modern JavaScript features
+  - buildSync vs buildSync with context: use buildSync for simpler CLI-like tooling, build with context for incremental builds
+  - linkedom elements may not pass instanceof checks with standard HTMLElement types from different DOM implementations
+  - Test mock paths must match actual file structure - use correct relative paths from test file location
+  - npm run test script fails when vitest not in PATH after reinstall - use npx vitest run as workaround
+  - vitest/jsdom integration issues resolved by reinstalling vitest and dependencies
+  - All tests pass after replacing JSDOM with linkedom and fixing mock paths
+
+---
+
 ## [Wed Mar 4 17:47:59 +03 2026] - US-006: Migrate Telegram bot to grammY with webhook mode
 
 Thread:
