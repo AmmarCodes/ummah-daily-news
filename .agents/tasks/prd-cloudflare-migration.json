@@ -1,0 +1,233 @@
+{
+  "version": 1,
+  "project": "Cloudflare Migration with OpenRouter",
+  "overview": "Migrate the Syrian Daily News Bot from AWS Lambda to Cloudflare Workers, replacing AWS AI services with OpenRouter, DynamoDB with Cloudflare D1, S3 with R2, and EventBridge scheduling with Workers Cron Triggers.",
+  "goals": [
+    "Deploy entire application on Cloudflare Workers only",
+    "Replace AWS AI (OpenAI/Anthropic) with OpenRouter API",
+    "Replace DynamoDB with Cloudflare D1 for state management",
+    "Replace S3 with Cloudflare R2 for intermediate storage",
+    "Replace EventBridge scheduling with Cloudflare Workers Cron Triggers",
+    "Migrate Telegram bot integration to work with Cloudflare Workers runtime",
+    "Maintain 5-stage pipeline architecture (Collection → Deduplication → Summarization → Website Publishing → Telegram Posting)",
+    "Ensure idempotent pipeline execution with state tracking",
+    "Configure quality gates for typecheck, lint, test, build, and deploy"
+  ],
+  "nonGoals": [
+    "Keep AWS infrastructure (Lambda, DynamoDB, S3, EventBridge)",
+    "Support banner generation (removed from scope)",
+    "Add new features beyond migration",
+    "Change core news collection and processing logic"
+  ],
+  "successMetrics": [
+    "All pipeline stages execute successfully on Cloudflare Workers",
+    "OpenRouter API correctly processes AI requests for summarization and deduplication",
+    "D1 database tracks pipeline state correctly",
+    "R2 stores intermediate data between pipeline stages",
+    "Workers Cron Trigger executes daily collection at 20:01 UTC",
+    "Telegram posts appear in both English and Arabic channels",
+    "Local development works with wrangler dev"
+  ],
+  "openQuestions": [
+    "How to handle Cloudflare Workers 10ms CPU time limit for AI processing?",
+    "What queue solution to use for stage-to-stage communication?",
+    "How to configure D1 database migrations?",
+    "How to manage R2 bucket lifecycle for intermediate files?"
+  ],
+  "stack": {
+    "framework": "Cloudflare Workers",
+    "hosting": "Cloudflare Workers",
+    "database": "Cloudflare D1",
+    "storage": "Cloudflare R2",
+    "ai": "OpenRouter",
+    "scheduling": "Cloudflare Workers Cron Triggers",
+    "telegram": "grammY",
+    "build": "wrangler"
+  },
+  "routes": [],
+  "uiNotes": [
+    "No UI changes - this is backend-only migration",
+    "Remove banner generation feature entirely"
+  ],
+  "dataModel": [
+    {
+      "entity": "Briefing",
+      "fields": [
+        "id (string, primary key)",
+        "date (string, partition key)",
+        "collectedTime (string, optional)",
+        "deduplicatedTime (string, optional)",
+        "summarizedTime (string, optional)",
+        "publishedToWebsiteTime (string, optional)",
+        "posts (JSON, optional)",
+        "postUrls (map of language to URL)"
+      ]
+    }
+  ],
+  "importFormat": {
+    "description": "Existing data structures remain unchanged - channels.json, news schemas",
+    "example": {}
+  },
+  "rules": [
+    "Pipeline stages must check state before processing to ensure idempotency",
+    "Each stage uploads intermediate data to R2 before triggering next stage",
+    "Workers Cron runs at 20:01 UTC daily (23:01 Damascus time)",
+    "OpenRouter API calls use unified interface for multiple LLM providers",
+    "grammY bot must use webhook mode for Cloudflare Workers"
+  ],
+  "qualityGates": [
+    "npm run typecheck",
+    "npm run lint",
+    "npm run test",
+    "npm run build",
+    "wrangler deploy"
+  ],
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Set up Cloudflare Workers project with Wrangler",
+      "status": "open",
+      "dependsOn": [],
+      "description": "As a developer, I want to configure the project for Cloudflare Workers deployment so that it can run on Cloudflare infrastructure.",
+      "acceptanceCriteria": [
+        "Install wrangler as dev dependency: npm install -D wrangler",
+        "Create wrangler.toml configuration file",
+        "Configure workers.toml with proper name, compatibility_date, and node_compat",
+        "Example: wrangler.toml created with name='sy-daily'",
+        "Negative case: missing wrangler.toml -> wrangler deploy fails"
+      ]
+    },
+    {
+      "id": "US-002",
+      "title": "Configure OpenRouter AI provider",
+      "status": "open",
+      "dependsOn": ["US-001"],
+      "description": "As a developer, I want to replace AWS AI (OpenAI/Anthropic) with OpenRouter API so that AI requests go through OpenRouter's unified API.",
+      "acceptanceCriteria": [
+        "Update AI provider configuration to use OpenRouter endpoint",
+        "Add OPENROUTER_API_KEY to environment variables",
+        "Modify src/ai/getLLMProvider.ts to use OpenRouter",
+        "Install OpenRouter SDK if needed: npm install @openrouter/ai-sdk",
+        "Example: AI_MODEL=openrouter/anthropic/claude-3-5-sonnet-20241022",
+        "Negative case: invalid API key -> OpenRouter returns 401 error"
+      ]
+    },
+    {
+      "id": "US-003",
+      "title": "Set up Cloudflare D1 database for state management",
+      "status": "open",
+      "dependsOn": ["US-001"],
+      "description": "As a developer, I want to replace DynamoDB with Cloudflare D1 for pipeline state tracking so that the pipeline can track execution progress.",
+      "acceptanceCriteria": [
+        "Create D1 database: wrangler d1 create sy-daily-db",
+        "Add D1 binding to wrangler.toml",
+        "Create database schema/migrations for Briefing entity",
+        "Install D1 SDK or use @cloudflare/workers-types",
+        "Example: D1 database created with schema matching existing DynamoDB",
+        "Negative case: missing D1 binding -> workers runtime error"
+      ]
+    },
+    {
+      "id": "US-004",
+      "title": "Configure Cloudflare R2 for intermediate storage",
+      "status": "open",
+      "dependsOn": ["US-001"],
+      "description": "As a developer, I want to replace S3 with Cloudflare R2 for storing intermediate pipeline data so that news data persists between stages.",
+      "acceptanceCriteria": [
+        "Create R2 bucket: wrangler r2 bucket create sy-daily-storage",
+        "Add R2 binding to wrangler.toml",
+        "Update S3 upload/download functions to use R2 API",
+        "Install @cloudflare/r2",
+        "Example: R2 bucket created and configured in wrangler.toml",
+        "Negative case: invalid R2 credentials -> R2 API error"
+      ]
+    },
+    {
+      "id": "US-005",
+      "title": "Set up Cloudflare Workers Cron Trigger for daily scheduling",
+      "status": "open",
+      "dependsOn": ["US-001"],
+      "description": "As a developer, I want to replace AWS EventBridge with Cloudflare Workers Cron Trigger so that news collection runs daily at 20:01 UTC.",
+      "acceptanceCriteria": [
+        "Configure cron trigger in wrangler.toml: triggers = [{ cron = '1 20 * * *' }]",
+        "Update Collect handler to respond to cron events",
+        "Test cron trigger locally with wrangler dev --remote",
+        "Example: cron '1 20 * * *' = 20:01 UTC daily",
+        "Negative case: invalid cron syntax -> wrangler validation error"
+      ]
+    },
+    {
+      "id": "US-006",
+      "title": "Migrate Telegram bot to grammY with webhook mode",
+      "status": "open",
+      "dependsOn": ["US-001"],
+      "description": "As a developer, I want to update the Telegram bot integration to work with Cloudflare Workers so that it can post summaries to channels.",
+      "acceptanceCriteria": [
+        "Update grammy bot configuration for Cloudflare Workers webhook mode",
+        "Configure TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET in wrangler.toml secrets",
+        "Create /webhook endpoint in workers for Telegram updates",
+        "Example: bot uses Bot.api with webhook URL from Workers",
+        "Negative case: missing webhook secret -> Telegram rejects webhook"
+      ]
+    },
+    {
+      "id": "US-007",
+      "title": "Update build configuration for Cloudflare Workers",
+      "status": "open",
+      "dependsOn": ["US-001", "US-002", "US-003", "US-004", "US-005", "US-006"],
+      "description": "As a developer, I want to update the build process so that TypeScript compiles to Workers-compatible output.",
+      "acceptanceCriteria": [
+        "Update esbuild.config.ts to target 'esnext' and use Cloudflare Workers runtime",
+        "Configure package.json type: 'module' if needed",
+        "Update build output to single worker script or split by routes",
+        "Example: esbuild targets cloudflare pages/functions",
+        "Negative case: targeting Node.js runtime -> workers runtime errors"
+      ]
+    },
+    {
+      "id": "US-008",
+      "title": "Add quality gates to package.json scripts",
+      "status": "open",
+      "dependsOn": [],
+      "description": "As a developer, I want to ensure all quality gates (typecheck, lint, test, build) pass before deployment so that code quality is maintained.",
+      "acceptanceCriteria": [
+        "Ensure npm run typecheck passes (tsc --noEmit)",
+        "Ensure npm run lint passes",
+        "Ensure npm run test passes",
+        "Ensure npm run build produces valid output",
+        "Example: all commands run successfully",
+        "Negative case: any command fails -> CI should fail"
+      ]
+    },
+    {
+      "id": "US-009",
+      "title": "Remove banner generation feature",
+      "status": "open",
+      "dependsOn": [],
+      "description": "As a developer, I want to remove the banner generation feature since it's out of scope for this migration.",
+      "acceptanceCriteria": [
+        "Remove sharp dependency from package.json",
+        "Remove banner-related code from PostToTelegram handler",
+        "Update templates to not require banner images",
+        "Example: posts no longer include banner images",
+        "Negative case: banner code remains -> unnecessary dependencies"
+      ]
+    },
+    {
+      "id": "US-010",
+      "title": "Deploy to Cloudflare and verify pipeline execution",
+      "status": "open",
+      "dependsOn": ["US-002", "US-003", "US-004", "US-005", "US-006", "US-007", "US-008", "US-009"],
+      "description": "As a developer, I want to deploy the application to Cloudflare and verify the full pipeline executes correctly so that the migration is complete.",
+      "acceptanceCriteria": [
+        "Run wrangler deploy successfully",
+        "Verify Workers Cron triggers collection",
+        "Check D1 database has briefing records after collection",
+        "Check R2 has intermediate JSON files (collected, deduplicated, summarized)",
+        "Verify Telegram posts appear in English and Arabic channels",
+        "Example: Full pipeline executes end-to-end",
+        "Negative case: any stage fails -> diagnose and fix"
+      ]
+    }
+  ]
+}
