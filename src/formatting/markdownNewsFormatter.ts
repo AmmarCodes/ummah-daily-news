@@ -32,12 +32,6 @@ const labelEmojis = {
 
 const MAX_LABELS_TO_DISPLAY = 1;
 
-function getOgImage(language: ContentLanguage, date: string) {
-  return `../../../assets/images/${date}-${
-    language === "arabic" ? "ar" : "en"
-  }.jpg`;
-}
-
 function getHeader(
   language: ContentLanguage,
   date: string,
@@ -48,7 +42,6 @@ function getHeader(
     author: Strings[language].Author,
     pubDatetime: `${date}T20:00:00.000Z`,
     description: `${Strings[language].DailyBriefingForDay} ${date}`,
-    ogImage: getOgImage(language, date),
     tags: mostFrequentLabels,
   };
   return stringify(result);
@@ -95,10 +88,6 @@ export function newsResponseToMarkdown({
 }: MarkdownFormatterInput): string {
   const header = getHeader(language, date, []);
 
-  const ogImageEmbed = `![${
-    Strings[language].DailyBriefingForDay
-  } ${date}](${getOgImage(language, date)})`;
-
   const firstLine = `${Strings[
     language
   ].ProcessedThisManyPostsFromThisManySources.replace(
@@ -124,5 +113,5 @@ export function newsResponseToMarkdown({
     collapsibleSection = `\n\n<details>\n<summary>${Strings[language].ShowMoreItems}</summary>\n\n${formattedRemainingItems}\n</details>`;
   }
 
-  return `---\n${header}\n---\n\n${ogImageEmbed}\n\n${firstLine}${formattedFirstItems}${collapsibleSection}\n`;
+  return `---\n${header}\n---\n\n${firstLine}${formattedFirstItems}${collapsibleSection}\n`;
 }
