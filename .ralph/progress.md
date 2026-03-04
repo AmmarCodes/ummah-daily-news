@@ -443,3 +443,48 @@ Removed remaining banner-image coupling from markdown post templates by deleting
   - `wrangler` may be unavailable globally in this environment; `npx wrangler` is the reliable invocation.
   - Existing unrelated dirty files can remain from prior runs; isolate story commits to avoid scope creep.
 ---
+## [Thu Mar 5 00:22:12 +03 2026] - US-010: Deploy to Cloudflare and verify pipeline execution
+Thread: 
+Run: 20260304-230305-85220 (iteration 1)
+Run log: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-230305-85220-iter-1.log
+Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-230305-85220-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 88d62ac feat(us-010): deploy worker pipeline and verify execution
+- Post-commit status: clean
+- Verification:
+  - Command: npm run typecheck -> PASS
+  - Command: npm run lint -> PASS
+  - Command: npm run test -> PASS
+  - Command: npm run build -> PASS
+  - Command: npx wrangler r2 bucket list -> PASS
+  - Command: npx wrangler d1 info sy-daily-db -> PASS
+  - Command: npx wrangler deploy -> PASS
+  - Command: curl -sS -X POST -H "X-Pipeline-Token: ${TELEGRAM_BOT_TOKEN}" "https://sy-daily.am-alakkad.workers.dev/internal/run-pipeline?simulate=true" -> PASS
+  - Command: npx wrangler d1 execute sy-daily-db --remote --command "SELECT date,collectedTime,deduplicatedTime,summarizedTime,publishedToWebsiteTime,posts FROM briefings ORDER BY date DESC LIMIT 3;" -> PASS
+  - Command: npx wrangler r2 object get "ummah-short-news/collected-news/2026-03-04.json" --remote --file /tmp/us010-collected.json -> PASS
+  - Command: npx wrangler r2 object get "ummah-short-news/deduplicated-news/2026-03-04.json" --remote --file /tmp/us010-deduplicated.json -> PASS
+  - Command: npx wrangler r2 object get "ummah-short-news/summarized-news/2026-03-04.json" --remote --file /tmp/us010-summarized.json -> PASS
+  - Command: curl -sS -I https://t.me/c/3805419205/6 && curl -sS -I https://t.me/c/3805419205/7 -> PASS
+- Files changed:
+  - src/index.ts
+  - src/db/D1Table.ts
+  - src/telegram/bot.ts
+  - src/types/env.ts
+  - src/ai/getLLMProvider.ts
+  - src/ai/deduplicate.ts
+  - src/ai/summarize.ts
+  - .ralph/progress.md
+- What was implemented
+Implemented end-to-end Cloudflare execution for US-010 by extending the Worker scheduled pipeline to run all stages (collection, deduplication, summarization, publish-state, Telegram EN/AR posting) with D1-backed state transitions and R2 artifact writes. Added explicit D1 runtime binding injection (`setD1Binding`) for Workers, hardened stage updates for idempotent reruns (overwrite-safe writes), and added an authenticated manual trigger endpoint (`POST /internal/run-pipeline`) to execute and verify the same pipeline path on-demand. Diagnosed and fixed repeated failures encountered during verification: unsupported Node fs usage in Worker dedupe path, OpenRouter model prefix parsing (`openrouter/` and `openrouter:`), and OpenAI-specific provider options causing OpenRouter request errors.
+- **Learnings for future iterations:**
+  - Patterns discovered
+  - Cloudflare scheduled deploy confirms cron binding (`schedule: 1 20 * * *`), but manual authenticated trigger is the fastest path to verify full pipeline without waiting for the cron window.
+  - D1 state + R2 object existence is sufficient to prove each stage executed; `wrangler r2 object get` works reliably for key-level verification when list is unavailable.
+  - OpenRouter model strings can arrive in both `openrouter/...` and `openrouter:...` formats; provider parsing should support both.
+  - Gotchas encountered
+  - Worker deployment does not automatically include non-binding runtime secrets; `wrangler secret put` is required for Telegram/AI runtime execution.
+  - OpenAI-specific `providerOptions` can break OpenRouter requests depending on key/provider routing policies.
+  - Useful context
+  - Verified remote artifacts for `2026-03-04`: D1 row has collected/deduplicated/summarized/published timestamps and Telegram EN/AR post URLs; R2 contains collected, deduplicated, and summarized JSON objects.
+---
