@@ -415,3 +415,31 @@ Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-2849
   - The banner/ directory couldn't be removed entirely (contains git-ignored files), but all TypeScript banner files were deleted
 
 ---
+## [Wed Mar 4 20:30:26 +0300 2026] - US-009: Remove banner generation feature
+Thread: 
+Run: 20260304-202746-70778 (iteration 1)
+Run log: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-202746-70778-iter-1.log
+Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-202746-70778-iter-1.md
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: eec5a82 refactor(us-009): remove banner image output and sharp root lock refs
+- Post-commit status: unclean (.agents/tasks/prd-cloudflare-migration.json, .ralph/runs/run-20260304-195331-61210-iter-1.md, wrangler.toml)
+- Verification:
+  - Command: npm run typecheck -> PASS
+  - Command: npm run lint -> PASS
+  - Command: npm run test -> PASS
+  - Command: npm run build -> PASS
+  - Command: wrangler deploy -> FAIL (command not found)
+  - Command: npx wrangler deploy -> PASS
+- Files changed:
+  - src/formatting/markdownNewsFormatter.ts
+  - package-lock.json
+  - yarn.lock
+  - .ralph/progress.md
+- What was implemented
+Removed remaining banner-image coupling from markdown post templates by deleting `ogImage` frontmatter and inline markdown image embedding, so published posts no longer require banner files. Ensured `sharp` is not present as a direct/root dependency in lockfiles by updating lock metadata (`package-lock.json` root deps and matching `yarn.lock` selector cleanup).
+- **Learnings for future iterations:**
+  - Banner/image coupling can persist in template/frontmatter even after Telegram posting logic is cleaned up.
+  - `wrangler` may be unavailable globally in this environment; `npx wrangler` is the reliable invocation.
+  - Existing unrelated dirty files can remain from prior runs; isolate story commits to avoid scope creep.
+---
