@@ -1,4 +1,8 @@
-import { openai, OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
+import {
+  openai,
+  createOpenAI,
+  OpenAIResponsesProviderOptions,
+} from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject, GenerateObjectResult } from "ai";
 import { ZodObject } from "zod";
@@ -12,6 +16,17 @@ export function getLLMProvider() {
     }
     const model = modelName.replace("anthropic:", "");
     return anthropic(model);
+  } else if (modelName.startsWith("openrouter:")) {
+    if (!process.env.OPENROUTER_API_KEY) {
+      throw new Error("OPENROUTER_API_KEY is not set");
+    }
+    const model = modelName.replace("openrouter:", "");
+    // OpenRouter is OpenAI-compatible, use custom baseURL
+    const openrouter = createOpenAI({
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: process.env.OPENROUTER_API_KEY,
+    });
+    return openrouter(model);
   } else if (modelName.startsWith("openai:")) {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error("OPENAI_API_KEY is not set");
@@ -54,7 +69,7 @@ export function resetCurrentUsage(): void {
 }
 
 export async function callLLM<Schema>(
-  input: CallLLMInput
+  input: CallLLMInput,
 ): Promise<GenerateObjectResult<Schema>> {
   const model = getLLMProvider();
   const result: GenerateObjectResult<Schema> = await (generateObject as any)({

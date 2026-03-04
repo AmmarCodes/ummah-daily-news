@@ -33,6 +33,7 @@ A Telegram bot that automatically collects Syrian news from 30+ Telegram channel
 The system uses a modular pipeline where each stage is a separate Lambda function, orchestrated via custom EventBridge events:
 
 **Stage 1: Collection**
+
 - **CollectFunction**: Collects raw news posts from Telegram channels
   - Scheduled execution at 20:01 UTC daily (23:01 Damascus time)
   - Entry point: `src/lambda/Collect.ts`
@@ -42,6 +43,7 @@ The system uses a modular pipeline where each stage is a separate Lambda functio
   - Output: `collected-news/{date}.json` → S3, emits `NewsCollected` event
 
 **Stage 2: Early Deduplication**
+
 - **DeduplicateFunction**: AI-powered early deduplication with multi-round processing
   - Triggered by custom EventBridge event `NewsCollected` from Stage 1
   - Entry point: `src/lambda/Deduplicate.ts`
@@ -53,6 +55,7 @@ The system uses a modular pipeline where each stage is a separate Lambda functio
   - Output: `deduplicated-news/{date}.json` → S3, emits `NewsDeduplicated` event
 
 **Stage 3: Summarization**
+
 - **SummarizeFunction**: AI-powered summarization and translation
   - Triggered by custom EventBridge event `NewsDeduplicated` from Stage 2
   - Entry point: `src/lambda/Summarize.ts`
@@ -62,6 +65,7 @@ The system uses a modular pipeline where each stage is a separate Lambda functio
   - Output: `summarized-news/{date}.json` → S3, emits `NewsSummarized` event
 
 **Stage 4: Website Publishing**
+
 - **PublishToWebsiteFunction**: Publishes news to GitHub Pages website
   - Triggered by custom EventBridge event `NewsSummarized` from Stage 3
   - Entry point: `src/lambda/PublishToWebsite.ts`
@@ -71,6 +75,7 @@ The system uses a modular pipeline where each stage is a separate Lambda functio
   - Emits custom EventBridge event `summaries-published` after publishing
 
 **Stage 5: Telegram Posting**
+
 - **PostToTelegramEnglishFunction & PostToTelegramArabicFunction**: Post formatted news with banners
   - Triggered by custom EventBridge event from Stage 4 (same trigger for both)
   - Entry point: `src/lambda/PostToTelegram.ts`
@@ -133,10 +138,14 @@ TELEGRAM_API_ID=your_api_id
 TELEGRAM_API_HASH=your_api_hash
 SESSION_STRING=your_session_string
 
-# AI Provider Configuration (choose one or both)
+# AI Provider Configuration (choose OpenRouter for unified access, or one or both)
+OPENROUTER_API_KEY=your_openrouter_key
+# Alternative providers (optional):
 OPENAI_API_KEY=your_openai_key
 ANTHROPIC_API_KEY=your_anthropic_key
-AI_MODEL=openai:gpt-4.1-2025-04-14
+# OpenRouter (recommended for unified access to multiple models):
+AI_MODEL=openrouter/anthropic/claude-3-5-sonnet-20241022
+# Alternative: AI_MODEL=openai:gpt-4.1-2025-04-14
 # Alternative: AI_MODEL=anthropic:claude-3-5-sonnet-20241022
 
 # Telegram Channel Configuration
@@ -343,6 +352,7 @@ updateComposedBanners.sh            # Banner update utility
 ### 5-Stage Pipeline Flow (Production)
 
 **Stage 1: CollectFunction** (Scheduled at 20:01 UTC daily)
+
 1. **State Initialization**: Creates briefing record in DynamoDB
 2. **Collection**: Uses Telegram API to fetch posts from 30+ configured channels in the last 24 hours (Damascus time)
 3. **Processing**: Extracts article content from linked URLs using axios and JSDOM
@@ -350,45 +360,23 @@ updateComposedBanners.sh            # Banner update utility
 5. **State Update**: Records collection completion timestamp in DynamoDB
 6. **Event Emission**: Emits custom EventBridge event `NewsCollected` to trigger next stage
 
-**Stage 2: DeduplicateFunction** (Triggered by custom EventBridge event `NewsCollected`)
-7. **State Validation**: Checks briefing exists and hasn't been deduplicated
-8. **Retrieval**: Downloads raw collected posts from S3
-9. **Multi-Round Deduplication**: Implements AI-powered deduplication with round-robin redistribution
-   - Splits items into batches of 150 items
-   - Processes up to 5 batches in parallel per round
-   - Redistributes items using round-robin between rounds to maximize deduplication opportunities
-   - Continues until 98% ratio threshold is reached or max rounds completed
-   - Skips local file writes when running in Lambda environment
+**Stage 2: DeduplicateFunction** (Triggered by custom EventBridge event `NewsCollected`) 7. **State Validation**: Checks briefing exists and hasn't been deduplicated 8. **Retrieval**: Downloads raw collected posts from S3 9. **Multi-Round Deduplication**: Implements AI-powered deduplication with round-robin redistribution
+
+- Splits items into batches of 150 items
+- Processes up to 5 batches in parallel per round
+- Redistributes items using round-robin between rounds to maximize deduplication opportunities
+- Continues until 98% ratio threshold is reached or max rounds completed
+- Skips local file writes when running in Lambda environment
+
 10. **Storage**: Uploads deduplicated posts to S3 at `deduplicated-news/{date}.json`
 11. **State Update**: Records deduplication completion timestamp in DynamoDB (with graceful error handling)
 12. **Event Emission**: Emits custom EventBridge event `NewsDeduplicated` to trigger next stage
 
-**Stage 3: SummarizeFunction** (Triggered by custom EventBridge event `NewsDeduplicated`)
-13. **State Validation**: Checks briefing exists and hasn't been summarized
-14. **Retrieval**: Downloads deduplicated posts from S3
-15. **Batch Processing**: Splits posts into batches of 20 items each
-16. **Parallel Summarization**: Processes up to 30 batches in parallel using AI
-17. **Translation**: Creates English summaries and translations from Arabic content
-18. **Storage**: Uploads summarized data to S3 at `summarized-news/{date}.json`
-19. **State Update**: Records summarization completion timestamp in DynamoDB (with graceful error handling)
-20. **Event Emission**: Emits custom EventBridge event `NewsSummarized` to trigger next stage
+**Stage 3: SummarizeFunction** (Triggered by custom EventBridge event `NewsDeduplicated`) 13. **State Validation**: Checks briefing exists and hasn't been summarized 14. **Retrieval**: Downloads deduplicated posts from S3 15. **Batch Processing**: Splits posts into batches of 20 items each 16. **Parallel Summarization**: Processes up to 30 batches in parallel using AI 17. **Translation**: Creates English summaries and translations from Arabic content 18. **Storage**: Uploads summarized data to S3 at `summarized-news/{date}.json` 19. **State Update**: Records summarization completion timestamp in DynamoDB (with graceful error handling) 20. **Event Emission**: Emits custom EventBridge event `NewsSummarized` to trigger next stage
 
-**Stage 4: PublishToWebsiteFunction** (Triggered by custom EventBridge event `NewsSummarized`)
-21. **State Validation**: Checks briefing exists and hasn't been published to website
-22. **Retrieval**: Downloads summarized news from S3
-23. **GitHub Publishing**: Publishes content to GitHub repository for website deployment (or simulates if `SIMULATE_WEBSITE_PUBLISH=true`)
-24. **State Update**: Records website publishing completion timestamp in DynamoDB (with graceful error handling)
-25. **Event Emission**: Emits custom EventBridge event `summaries-published` to notify Telegram functions
+**Stage 4: PublishToWebsiteFunction** (Triggered by custom EventBridge event `NewsSummarized`) 21. **State Validation**: Checks briefing exists and hasn't been published to website 22. **Retrieval**: Downloads summarized news from S3 23. **GitHub Publishing**: Publishes content to GitHub repository for website deployment (or simulates if `SIMULATE_WEBSITE_PUBLISH=true`) 24. **State Update**: Records website publishing completion timestamp in DynamoDB (with graceful error handling) 25. **Event Emission**: Emits custom EventBridge event `summaries-published` to notify Telegram functions
 
-**Stage 5: PostToTelegramFunction** (Both English and Arabic triggered by custom EventBridge event `summaries-published`)
-26. **State Validation**: Checks briefing exists and hasn't been posted for this language
-27. **Retrieval**: Downloads summarized news from S3
-28. **Final Prioritization**: Analyzes and prioritizes news items using weighted label system
-29. **Formatting**: Formats news items into structured Telegram messages (language-specific with HTML formatting)
-30. **Banner Selection**: Determines most frequent news category and fetches pre-composed banner from S3
-31. **Date Overlay**: Adds date overlay to banner image
-32. **Publishing**: Posts banner image with formatted summary to respective target Telegram channels via TelegramUser client
-33. **State Update**: Records Telegram post URL in DynamoDB (with graceful error handling)
+**Stage 5: PostToTelegramFunction** (Both English and Arabic triggered by custom EventBridge event `summaries-published`) 26. **State Validation**: Checks briefing exists and hasn't been posted for this language 27. **Retrieval**: Downloads summarized news from S3 28. **Final Prioritization**: Analyzes and prioritizes news items using weighted label system 29. **Formatting**: Formats news items into structured Telegram messages (language-specific with HTML formatting) 30. **Banner Selection**: Determines most frequent news category and fetches pre-composed banner from S3 31. **Date Overlay**: Adds date overlay to banner image 32. **Publishing**: Posts banner image with formatted summary to respective target Telegram channels via TelegramUser client 33. **State Update**: Records Telegram post URL in DynamoDB (with graceful error handling)
 
 ### Local Development Flow
 
