@@ -1,26 +1,22 @@
-import * as fs from "fs";
-import * as path from "path";
 import { getEpochSecondsMostRecent_11_PM_InDamascus } from "../../utils/dateUtils";
-import { TelegramPost, ChannelConfig } from "../../types";
-import { TelegramUser } from "../../telegram/user";
+import { ChannelConfig } from "../../types";
 import { getPostsForAllChannels } from "./telegramScraper";
+import channelsConfig from "../../../channels.json";
 
 export function loadChannelConfig(): ChannelConfig {
   try {
-    const configPath = path.join(process.cwd(), "channels.json");
-    const configFile = fs.readFileSync(configPath, "utf-8");
-    return JSON.parse(configFile) as ChannelConfig;
+    return channelsConfig as ChannelConfig;
   } catch (error) {
     console.error(
       "Error loading channels.json, falling back to SANA only:",
-      error
+      error,
     );
     return { channels: [{ handle: "sana_gov", name: "" }] };
   }
 }
 
 export async function getPostsInLast24Hours(
-  specifiedDate?: Date
+  specifiedDate?: Date,
 ): Promise<Record<string, string[]>> {
   console.log("Getting posts in last 24 hours...");
   const channels = loadChannelConfig();
@@ -33,7 +29,7 @@ export async function getPostsInLast24Hours(
   const allPostsDictionary = await getPostsForAllChannels(
     channels.channels.map((channel) => channel.handle),
     earliestDate,
-    latestDate
+    latestDate,
   );
 
   return allPostsDictionary;
