@@ -1,7 +1,6 @@
 import { NewItemLabels, NewsResponse, NewsResponseSchema } from "../types";
 import { CustomTerms } from "./customTerms";
 import { callLLM, getLLMProvider } from "./getLLMProvider";
-import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 
 const MAX_OUTPUT_TOKENS = 32768; // this is the max tokens for the gpt-4.1 model.
 
@@ -80,12 +79,6 @@ export async function summarize(
         prompt: inputText,
         schema: NewsResponseSchema,
         maxOutputTokens: MAX_OUTPUT_TOKENS,
-        providerOptions: {
-          openai: {
-            store: true,
-            reasoningEffort: "high",
-          } satisfies OpenAIResponsesProviderOptions,
-        },
       });
 
       const { object: batchResponse, usage } = result;

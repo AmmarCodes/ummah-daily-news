@@ -37,6 +37,7 @@ export interface Env {
    * AI configuration
    */
   OPENAI_API_KEY?: string;
+  OPENROUTER_API_KEY?: string;
   ANTHROPIC_API_KEY?: string;
   AI_MODEL?: string;
 

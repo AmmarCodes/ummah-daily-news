@@ -3,17 +3,13 @@ import { Env } from "../types/env";
 
 export class TelegramBot {
   bot: Bot;
-  private channelId: number;
+  private channelId?: number;
   private env: Env | NodeJS.ProcessEnv;
 
-  constructor(channelId: number, env: Env | NodeJS.ProcessEnv = process.env) {
+  constructor(channelId?: number, env: Env | NodeJS.ProcessEnv = process.env) {
     const botToken = env.TELEGRAM_BOT_TOKEN;
     if (!botToken) {
       throw new Error("TELEGRAM_BOT_TOKEN is not set");
-    }
-
-    if (!channelId) {
-      throw new Error("channelId is not set");
     }
 
     this.bot = new Bot(botToken);
@@ -61,16 +57,23 @@ export class TelegramBot {
   }
 
   async postMessage(htmlText: string) {
-    await this.bot.api.sendMessage(this.channelId, htmlText, {
+    if (!this.channelId) {
+      throw new Error("channelId is not set");
+    }
+    const result = await this.bot.api.sendMessage(this.channelId, htmlText, {
       parse_mode: "HTML",
       link_preview_options: {
         is_disabled: true,
       },
     });
     console.log("Message posted to Telegram.");
+    return result;
   }
 
   async postPhoto(buffer: Buffer, caption: string) {
+    if (!this.channelId) {
+      throw new Error("channelId is not set");
+    }
     await this.bot.api.sendPhoto(this.channelId, new InputFile(buffer), {
       parse_mode: "HTML",
       caption: caption,

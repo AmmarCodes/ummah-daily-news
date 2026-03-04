@@ -243,7 +243,7 @@
     {
       "id": "US-009",
       "title": "Remove banner generation feature",
-      "status": "in_progress",
+      "status": "done",
       "dependsOn": [],
       "description": "As a developer, I want to remove the banner generation feature since it's out of scope for this migration.",
       "acceptanceCriteria": [
@@ -253,14 +253,14 @@
         "Example: posts no longer include banner images",
         "Negative case: banner code remains -> unnecessary dependencies"
       ],
-      "startedAt": "2026-03-04T15:21:16.543885+00:00",
-      "completedAt": null,
-      "updatedAt": "2026-03-04T15:21:16.544072+00:00"
+      "startedAt": "2026-03-04T17:27:46.196445+00:00",
+      "completedAt": "2026-03-04T17:31:12.113104+00:00",
+      "updatedAt": "2026-03-04T17:31:12.112972+00:00"
     },
     {
       "id": "US-010",
       "title": "Deploy to Cloudflare and verify pipeline execution",
-      "status": "open",
+      "status": "in_progress",
       "dependsOn": [
         "US-002",
         "US-003",
@@ -280,7 +280,10 @@
         "Verify Telegram posts appear in English and Arabic channels",
         "Example: Full pipeline executes end-to-end",
         "Negative case: any stage fails -> diagnose and fix"
-      ]
+      ],
+      "updatedAt": "2026-03-04T20:03:05.495755+00:00",
+      "startedAt": "2026-03-04T20:03:05.495627+00:00",
+      "completedAt": null
     }
   ]
 }

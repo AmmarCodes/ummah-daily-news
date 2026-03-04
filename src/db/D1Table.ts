@@ -50,6 +50,12 @@ export type Briefing = {
   updatedAt?: string;
 };
 
+let d1Binding: D1Database | null = null;
+
+export function setD1Binding(db: D1Database): void {
+  d1Binding = db;
+}
+
 /**
  * Parse JSON strings from D1 rows to typed objects
  */
@@ -82,6 +88,10 @@ export function getDB(): D1Database {
     throw new Error(
       "D1 database is not available in Lambda environment. Please migrate to Cloudflare Workers.",
     );
+  }
+
+  if (d1Binding) {
+    return d1Binding;
   }
 
   const db = (process.env as any).DB;

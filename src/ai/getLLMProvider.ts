@@ -1,7 +1,6 @@
 import {
   openai,
   createOpenAI,
-  OpenAIResponsesProviderOptions,
 } from "@ai-sdk/openai";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateObject, GenerateObjectResult } from "ai";
@@ -9,6 +8,8 @@ import { ZodObject } from "zod";
 
 export function getLLMProvider() {
   const modelName = process.env.AI_MODEL || "openai:gpt-4.1-2025-04-14";
+  const openRouterPrefix =
+    modelName.startsWith("openrouter:") || modelName.startsWith("openrouter/");
 
   if (modelName.startsWith("anthropic:")) {
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -16,11 +17,11 @@ export function getLLMProvider() {
     }
     const model = modelName.replace("anthropic:", "");
     return anthropic(model);
-  } else if (modelName.startsWith("openrouter:")) {
+  } else if (openRouterPrefix) {
     if (!process.env.OPENROUTER_API_KEY) {
       throw new Error("OPENROUTER_API_KEY is not set");
     }
-    const model = modelName.replace("openrouter:", "");
+    const model = modelName.replace(/^openrouter[:/]/, "");
     // OpenRouter is OpenAI-compatible, use custom baseURL
     const openrouter = createOpenAI({
       baseURL: "https://openrouter.ai/api/v1",
@@ -75,12 +76,6 @@ export async function callLLM<Schema>(
   const result: GenerateObjectResult<Schema> = await (generateObject as any)({
     ...input,
     model,
-    providerOptions: {
-      openai: {
-        store: true,
-        reasoningEffort: "low",
-      } satisfies OpenAIResponsesProviderOptions,
-    },
   });
   currentUsage.inputTokens += result.usage.inputTokens ?? 0;
   currentUsage.outputTokens += result.usage.outputTokens ?? 0;

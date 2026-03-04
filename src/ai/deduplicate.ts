@@ -1,11 +1,9 @@
-import { OpenAIResponsesProviderOptions } from "@ai-sdk/openai";
 import {
   SimplifiedNewsItem,
   SimplifiedNewsResponse,
   SimplifiedNewsResponseSchema,
 } from "../types";
 import { callLLM } from "./getLLMProvider";
-import fs from "node:fs/promises";
 
 const MAX_OUTPUT_TOKENS = 32768; // this is the max tokens for the gpt-4.1 model.
 const BATCH_SIZE = 75;
@@ -15,7 +13,6 @@ const ROUND_WAIT_TIME_MS = 4000; // 4 seconds
 const DEDUPLICATION_EARLY_STOP_THRESHOLD = 2;
 const DEDUPLICATION_RATIO_THRESHOLD = 0.98;
 const MIN_ITEMS_PER_ROUND = 30;
-const SHOULD_SKIP_WRITE_TO_FILE = process.env.IS_LAMBDA === "true";
 
 async function writeToFile(
   items: (SimplifiedNewsItem | string)[],
@@ -23,23 +20,17 @@ async function writeToFile(
   roundNumber: number,
   batchNumber?: number
 ) {
-  if (SHOULD_SKIP_WRITE_TO_FILE) {
+  const DEDUPE_OUTPUT_FOLDER = process.env.DEDUPE_OUTPUT_FOLDER;
+  if (!DEDUPE_OUTPUT_FOLDER || process.env.IS_LAMBDA !== "true") {
     return;
   }
-  const DEDUPE_OUTPUT_FOLDER = process.env.DEDUPE_OUTPUT_FOLDER;
+
   const batchName = `${String(roundNumber).padStart(2, "0")}-${
     batchNumber ? String(batchNumber).padStart(2, "0") : "--"
   }`;
-  if (DEDUPE_OUTPUT_FOLDER) {
-    await fs.writeFile(
-      `${DEDUPE_OUTPUT_FOLDER}/${batchName}-${type}.json`,
-      JSON.stringify(items, null, 2)
-    );
-  } else {
-    console.log(
-      `No output folder set, skipping write to file for ${type}-${batchName}.json`
-    );
-  }
+  console.log(
+    `Debug file output disabled in Workers build, skipping write for ${type}-${batchName}.json (${items.length} items)`
+  );
 }
 
 const systemPromptDeduplicate = `You are a news editor fluent in Arabic. You'll be given a list of news items that may contain duplicates. Your task is to deduplicate the news items. Follow these rules:
@@ -68,12 +59,6 @@ async function deduplicateBatch(
     prompt: JSON.stringify(newsItems, null, 2),
     schema: SimplifiedNewsResponseSchema,
     maxOutputTokens: MAX_OUTPUT_TOKENS,
-    providerOptions: {
-      openai: {
-        store: true,
-        reasoningEffort: "high",
-      } satisfies OpenAIResponsesProviderOptions,
-    },
   });
 
   const batchName = `${String(roundNumber).padStart(2, "0")}-${String(

@@ -36,7 +36,7 @@ migrations_dir = "./migrations"
 
 [[r2_buckets]]
 binding = "SY_DAILY_STORAGE"
-bucket_name = "sy-daily-storage"
+bucket_name = "ummah-short-news"
 
 [triggers]
 crons = ["1 20 * * *"]
