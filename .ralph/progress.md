@@ -302,3 +302,45 @@ Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-2849
   - All existing scripts remain unchanged, ensuring no breaking changes
 
 ---
+
+## [Wed Mar 4 18:21:17 +03 2026] - US-009: Remove banner generation feature
+
+Thread:
+Run: 20260304-171312-28499 (iteration 7)
+Run log: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-28499-iter-7.log
+Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-28499-iter-7.md
+
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: 0a7b3d6 refactor(telegram): remove banner generation feature
+- Post-commit status: clean
+- Verification:
+  - Command: npm run typecheck -> PASS
+  - Command: npm run lint -> PASS
+  - Command: npm run test:run -> PASS (17/17 tests)
+  - Command: npm run build -> PASS
+- Files changed:
+  - package.json (removed sharp dependency, removed banners:compose and banners:update scripts)
+  - src/telegram/user.ts (added sendMessage method for text-only posts)
+  - src/lambda/PostToTelegram.ts (removed banner imports and code, switched from sendPhotoToChannel to sendMessage)
+  - src/local/index.ts (removed banner imports and code, switched from sendPhotoToChannel to sendMessage)
+  - src/formatting/markdownNewsFormatter.ts (removed getMostFrequentLabels import and usage)
+  - src/lambda/PublishToWebsite.ts (removed getBanner function and all banner-related code)
+  - src/banner/newsBanner.ts (deleted)
+  - src/banner/composeBanners.ts (deleted)
+  - src/banner/bannersDemo.ts (deleted)
+  - src/mostFrequentLabel.ts (deleted)
+  - .agents/tasks/prd-cloudflare-migration.json (updated US-009 status)
+  - .ralph/progress.md (appended this progress entry)
+- What was implemented:
+  Removed banner generation feature from the codebase as it's out of scope for Cloudflare Workers migration. Removed sharp dependency from package.json along with banner generation scripts (banners:compose, banners:update). Deleted all banner-related files: newsBanner.ts, composeBanners.ts, bannersDemo.ts, and mostFrequentLabel.ts (no longer needed). Updated PostToTelegram.ts to remove banner imports, banner download/processing code, and switched from sendPhotoToChannel to sendMessage for text-only posts. Updated local/index.ts with same banner code removal. Updated src/formatting/markdownNewsFormatter.ts to remove getMostFrequentLabels import and usage. Updated src/lambda/PublishToWebsite.ts to remove getBanner function and all banner-related code (banner fetching and markdown link generation). Added sendMessage method to TelegramUser class for posting text-only messages to Telegram channels. All quality gates passing: typecheck, lint, test (17/17), build.
+
+- **Learnings for future iterations:**
+  - Banner generation involved complex code across multiple files - removing it required careful tracking of all imports and usages
+  - TelegramUser class needed a simple sendMessage method as alternative to sendPhotoToChannel for text-only posts
+  - Removing dependencies like sharp reduces bundle size and simplifies deployment for Cloudflare Workers
+  - Banner code was scattered across PostToTelegram, PublishToWebsite, local/index.ts, and formatting modules - all needed updates
+  - mostFrequentLabel.ts was only used for banner category selection, so it could be deleted along with banner code
+  - The banner/ directory couldn't be removed entirely (contains git-ignored files), but all TypeScript banner files were deleted
+
+---
