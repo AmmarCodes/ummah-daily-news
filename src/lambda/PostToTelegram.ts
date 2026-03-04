@@ -5,11 +5,9 @@ import {
   ContentLanguages,
 } from "../types";
 import { prioritizeAndFormat } from "../prioritizeAndFormat";
-import { getMostFrequentLabels } from "../mostFrequentLabel";
 import { TelegramUser } from "../telegram/user";
-import { addDateToBanner } from "../banner/newsBanner";
 import { getBriefing, updateBriefingPost } from "../db/BriefingEntity";
-import { downloadJSON, downloadBinary } from "../storage";
+import { downloadJSON } from "../storage";
 
 if (!process.env.TELEGRAM_CHANNEL_ID) {
   throw new Error("TELEGRAM_CHANNEL_ID is not set");
@@ -88,36 +86,11 @@ export const handler: EventBridgeHandler<string, Payload, void> = async (
       return;
     }
 
-    const mostFrequentLabel = getMostFrequentLabels(formattedNews.newsItems)[0];
-    console.log(`🔍 Most frequent label: ${mostFrequentLabel}`);
-
     console.log("Posting summary to Telegram...");
-
-    // Get the pre-composed banner from storage (S3 in Lambda, R2 in Workers)
-    const bannerKey = `composedBanners/${CONTENT_LANGUAGE}/${mostFrequentLabel}.jpg`;
-    const fallbackKey = `composedBanners/${CONTENT_LANGUAGE}/other.jpg`;
-    console.log(`Fetching banner from storage: ${bannerKey}`);
-
-    let bannerBuffer: ArrayBufferLike;
-    try {
-      bannerBuffer = await downloadBinary(bannerKey);
-    } catch (error) {
-      console.log(
-        `Banner not found at ${bannerKey}, falling back to ${fallbackKey}`,
-      );
-      bannerBuffer = await downloadBinary(fallbackKey);
-    }
-
-    // Add date to the banner
-    const banner = await addDateToBanner(
-      Buffer.from(bannerBuffer),
-      newsData.date,
-    );
 
     const user = new TelegramUser();
     await user.login();
-    const result = await user.sendPhotoToChannel(CHANNEL_ID, banner, {
-      caption: formattedNews.message,
+    const result = await user.sendMessage(CHANNEL_ID, formattedNews.message, {
       parseMode: "html",
       silent: false,
     });

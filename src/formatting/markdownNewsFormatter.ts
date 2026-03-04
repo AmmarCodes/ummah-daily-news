@@ -1,4 +1,3 @@
-import { getMostFrequentLabels } from "../mostFrequentLabel";
 import {
   ProcessedNews,
   ContentLanguage,
@@ -42,7 +41,7 @@ function getOgImage(language: ContentLanguage, date: string) {
 function getHeader(
   language: ContentLanguage,
   date: string,
-  mostFrequentLabels: NewsItemLabel[]
+  mostFrequentLabels: NewsItemLabel[] = [],
 ) {
   const result = {
     title: `${Strings[language].DailyBriefingForDay} ${date}`,
@@ -57,7 +56,7 @@ function getHeader(
 
 function formatNewsItemForMarkdown(
   language: ContentLanguage,
-  item: NewsItemWithImportanceScore
+  item: NewsItemWithImportanceScore,
 ): string {
   // const importanceScore = item.importanceScore;
   const labelText = item.labels
@@ -70,7 +69,7 @@ function formatNewsItemForMarkdown(
       (source, idx) =>
         `<a href="${source}" target="_blank">[${Strings[language].Source}${
           item.sources.length > 1 ? ` ${idx + 1}` : ""
-        }]</a>`
+        }]</a>`,
     )
     .join(", ");
 
@@ -94,11 +93,7 @@ export function newsResponseToMarkdown({
   numberOfPosts,
   numberOfSources,
 }: MarkdownFormatterInput): string {
-  const mostFrequentLabels = getMostFrequentLabels(
-    newsResponse.newsItems
-  ).slice(0, 3);
-
-  const header = getHeader(language, date, mostFrequentLabels);
+  const header = getHeader(language, date, []);
 
   const ogImageEmbed = `![${
     Strings[language].DailyBriefingForDay
@@ -108,7 +103,7 @@ export function newsResponseToMarkdown({
     language
   ].ProcessedThisManyPostsFromThisManySources.replace(
     "{numberOfPosts}",
-    numberOfPosts.toString()
+    numberOfPosts.toString(),
   ).replace("{numberOfSources}", numberOfSources.toString())}\n\n`;
 
   const items = newsResponse.newsItems;

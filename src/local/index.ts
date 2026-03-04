@@ -7,9 +7,7 @@ import fs, { existsSync, mkdirSync, writeFileSync } from "fs";
 import path from "path";
 import { prioritizeAndFormat } from "../prioritizeAndFormat";
 import { collect } from "../news-collection/collect";
-import { generateNewsBanner } from "../banner/newsBanner";
 import { TelegramUser } from "../telegram/user";
-import { getMostFrequentLabels } from "../mostFrequentLabel";
 import { summarize } from "../ai/summarize";
 import { deduplicate } from "../ai/deduplicate";
 import { prioritizeNews } from "../prioritizeNews";
@@ -18,17 +16,17 @@ import { newsResponseToMarkdown } from "../formatting/markdownNewsFormatter";
 const CACHE_COLLECTED_NEWS_FILE = path.join(
   process.cwd(),
   "cache",
-  "collectedNews.json"
+  "collectedNews.json",
 );
 const CACHE_SUMMARIZED_NEWS_FILE = path.join(
   process.cwd(),
   "cache",
-  "summarizedNews.json"
+  "summarizedNews.json",
 );
 const CACHE_DEDUPLICATED_NEWS_FILE = path.join(
   process.cwd(),
   "cache",
-  "deduplicatedNews.json"
+  "deduplicatedNews.json",
 );
 
 const DEDUPE_OUTPUT_FOLDER = path.join(process.cwd(), "cache", "deduplicate");
@@ -49,7 +47,7 @@ async function getCollectedNews(date: string) {
     };
     fs.writeFileSync(
       CACHE_COLLECTED_NEWS_FILE,
-      JSON.stringify(result, null, 2)
+      JSON.stringify(result, null, 2),
     );
     return result;
   } catch (error) {
@@ -69,7 +67,7 @@ async function getDeduplicatedNews(date: string) {
   }
   const collectedNews = await getCollectedNews(date);
   const deduplicatedNews = (await deduplicate(collectedNews.newsItems)).map(
-    (item) => `${item.text}\n${item.sources.join("\n")}`
+    (item) => `${item.text}\n${item.sources.join("\n")}`,
   );
   const result: CollectedNewsData = {
     ...collectedNews,
@@ -77,7 +75,7 @@ async function getDeduplicatedNews(date: string) {
   };
   fs.writeFileSync(
     CACHE_DEDUPLICATED_NEWS_FILE,
-    JSON.stringify(result, null, 2)
+    JSON.stringify(result, null, 2),
   );
   return result;
 }
@@ -97,7 +95,7 @@ async function getSummarizedNews(date: string) {
     };
     fs.writeFileSync(
       CACHE_SUMMARIZED_NEWS_FILE,
-      JSON.stringify(result, null, 2)
+      JSON.stringify(result, null, 2),
     );
     return result;
   } catch (error) {
@@ -109,7 +107,7 @@ async function getSummarizedNews(date: string) {
 export async function executeForLast24Hours(
   language: ContentLanguage,
   channelId: number,
-  simulate = false
+  simulate = false,
 ) {
   const date = new Date(getEpochSecondsMostRecent_11_PM_InDamascus() * 1000)
     .toISOString()
@@ -124,10 +122,6 @@ export async function executeForLast24Hours(
     return;
   }
 
-  const mostFrequentLabel = getMostFrequentLabels(formattedNews.newsItems)[0];
-
-  console.log(`🔍 Most frequent label: ${mostFrequentLabel}`);
-
   if (simulate) {
     console.log(formattedNews);
     console.log("\n--- Raw News Items ---");
@@ -135,7 +129,7 @@ export async function executeForLast24Hours(
     return;
   }
 
-  // Prioritize, the news
+  // Prioritize news
   const prioritizedNews = prioritizeNews(news.newsResponse.newsItems);
 
   const markdownNews = newsResponseToMarkdown({
@@ -148,17 +142,15 @@ export async function executeForLast24Hours(
     numberOfSources: news.numberOfSources,
   });
 
-  // write the markdown to a file named after the proper language inside the cache folder
+  // write markdown to a file named after the proper language inside the cache folder
   writeFileSync(
     path.join(process.cwd(), "cache", `${date}.${language}.md`),
-    markdownNews
+    markdownNews,
   );
-  const banner = await generateNewsBanner(mostFrequentLabel, date, language);
 
   const user = new TelegramUser();
   await user.login();
-  await user.sendPhotoToChannel(channelId, banner, {
-    caption: formattedNews.message,
+  await user.sendMessage(channelId, formattedNews.message, {
     parseMode: "html",
     silent: false,
   });
@@ -175,14 +167,14 @@ async function postSummaries() {
   await executeForLast24Hours(
     "arabic",
     parseInt(process.env.TELEGRAM_CHANNEL_ID_ARABIC!),
-    simulate
+    simulate,
   );
   console.log("Posted Arabic summary");
 
   await executeForLast24Hours(
     "english",
     parseInt(process.env.TELEGRAM_CHANNEL_ID_ENGLISH!),
-    simulate
+    simulate,
   );
   console.log("Posted English summary");
 }

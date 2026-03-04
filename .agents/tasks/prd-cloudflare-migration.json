@@ -225,7 +225,7 @@
     {
       "id": "US-008",
       "title": "Add quality gates to package.json scripts",
-      "status": "in_progress",
+      "status": "done",
       "dependsOn": [],
       "description": "As a developer, I want to ensure all quality gates (typecheck, lint, test, build) pass before deployment so that code quality is maintained.",
       "acceptanceCriteria": [
@@ -237,13 +237,13 @@
         "Negative case: any command fails -> CI should fail"
       ],
       "startedAt": "2026-03-04T15:13:42.019210+00:00",
-      "completedAt": null,
-      "updatedAt": "2026-03-04T15:13:42.019357+00:00"
+      "completedAt": "2026-03-04T15:21:14.464104+00:00",
+      "updatedAt": "2026-03-04T15:21:14.463999+00:00"
     },
     {
       "id": "US-009",
       "title": "Remove banner generation feature",
-      "status": "open",
+      "status": "in_progress",
       "dependsOn": [],
       "description": "As a developer, I want to remove the banner generation feature since it's out of scope for this migration.",
       "acceptanceCriteria": [
@@ -252,7 +252,10 @@
         "Update templates to not require banner images",
         "Example: posts no longer include banner images",
         "Negative case: banner code remains -> unnecessary dependencies"
-      ]
+      ],
+      "startedAt": "2026-03-04T15:21:16.543885+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-03-04T15:21:16.544072+00:00"
     },
     {
       "id": "US-010",

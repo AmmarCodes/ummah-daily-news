@@ -21,7 +21,7 @@ export class TelegramUser {
     }
     if (!process.env.SESSION_STRING) {
       throw new Error(
-        "SESSION_STRING is not set (required in production, disable this check in local development for the first time you run the app)"
+        "SESSION_STRING is not set (required in production, disable this check in local development for the first time you run the app)",
       );
     }
     const apiId = parseInt(process.env.TELEGRAM_API_ID!);
@@ -42,7 +42,7 @@ export class TelegramUser {
         rl.question(question, (answer) => {
           rl.close();
           resolve(answer.trim());
-        })
+        }),
       );
     }
     await this.client.start({
@@ -58,7 +58,7 @@ export class TelegramUser {
   async sendPhotoToChannel(
     channelUsername: string | number,
     photoBuffer: Buffer,
-    options: PhotoPostOptions = {}
+    options: PhotoPostOptions = {},
   ): Promise<CustomMessage> {
     const { caption = "", parseMode, silent = false } = options;
 
@@ -68,7 +68,7 @@ export class TelegramUser {
         "photo.jpg",
         photoBuffer.length,
         "photo.jpg",
-        photoBuffer
+        photoBuffer,
       ),
       workers: 1,
     });
@@ -87,6 +87,20 @@ export class TelegramUser {
     // so we need to use the getChat method to get the chat info
     // fetch the channel info
 
+    return result;
+  }
+
+  async sendMessage(
+    channelUsername: string | number,
+    message: string,
+    options: PhotoPostOptions = {},
+  ): Promise<CustomMessage> {
+    const { parseMode, silent = false } = options;
+    const result = await this.client.sendMessage(channelUsername, {
+      message: message,
+      parseMode: parseMode,
+      silent: silent,
+    });
     return result;
   }
 

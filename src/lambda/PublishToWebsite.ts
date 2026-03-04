@@ -16,9 +16,7 @@ import {
   getBriefing,
   updateBriefingPublishedToWebsiteTime,
 } from "../db/BriefingEntity";
-import { getMostFrequentLabels } from "../mostFrequentLabel";
-import { addDateToBanner } from "../banner/newsBanner";
-import { downloadJSON, downloadBinary } from "../storage";
+import { downloadJSON } from "../storage";
 
 const eventBridgeClient = new EventBridgeClient({
   region: process.env.AWS_REGION || "us-east-1",
@@ -30,40 +28,6 @@ if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
   throw new Error(
     "Missing required env vars: GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO",
   );
-}
-
-async function getBanner(
-  processedNews: ProcessedNews,
-  contentLanguage: ContentLanguage,
-) {
-  const mostFrequentLabel = getMostFrequentLabels(
-    processedNews.newsResponse.newsItems,
-  )[0];
-  console.log(`🔍 Most frequent label: ${mostFrequentLabel}`);
-
-  console.log("Posting summary to Telegram...");
-
-  // Get the pre-composed banner from storage (S3 in Lambda, R2 in Workers)
-  const bannerKey = `composedBanners/${contentLanguage}/${mostFrequentLabel}.jpg`;
-  const fallbackKey = `composedBanners/${contentLanguage}/other.jpg`;
-  console.log(`Fetching banner from storage: ${bannerKey}`);
-
-  let bannerBuffer: ArrayBufferLike;
-  try {
-    bannerBuffer = await downloadBinary(bannerKey);
-  } catch (error) {
-    console.log(
-      `Banner not found at ${bannerKey}, falling back to ${fallbackKey}`,
-    );
-    bannerBuffer = await downloadBinary(fallbackKey);
-  }
-
-  // Add date to the banner
-  const banner = await addDateToBanner(
-    Buffer.from(bannerBuffer),
-    processedNews.date,
-  );
-  return banner;
 }
 
 export const handler: EventBridgeHandler<
@@ -132,9 +96,6 @@ export const handler: EventBridgeHandler<
       numberOfSources: newsData.numberOfSources,
     });
 
-    const englishBanner = await getBanner(newsData, "english");
-    const englishBannerBase64 = englishBanner.toString("base64");
-
     const arabicMarkdownNews = newsResponseToMarkdown({
       language: "arabic",
       newsResponse: {
@@ -144,23 +105,11 @@ export const handler: EventBridgeHandler<
       numberOfPosts: newsData.numberOfPosts,
       numberOfSources: newsData.numberOfSources,
     });
-    const arabicBanner = await getBanner(newsData, "arabic");
-    const arabicBannerBase64 = arabicBanner.toString("base64");
 
     const result = await commitFilesToGitHub({
       files: [
         { path: `src/data/blog/en/${date}.md`, content: englishMarkdownNews },
         { path: `src/data/blog/ar/${date}.md`, content: arabicMarkdownNews },
-        {
-          path: `src/assets/images/${date}-en.jpg`,
-          content: englishBannerBase64,
-          encoding: "base64",
-        },
-        {
-          path: `src/assets/images/${date}-ar.jpg`,
-          content: arabicBannerBase64,
-          encoding: "base64",
-        },
       ],
       owner: GITHUB_OWNER,
       repo: GITHUB_REPO,
