@@ -49,6 +49,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260301.1",
     "@types/aws-lambda": "^8.10.147",
     "@types/express": "^5.0.1",
     "@types/jsdom": "^21.1.7",

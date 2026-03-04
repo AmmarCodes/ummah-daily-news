@@ -2,3 +2,9 @@ name = "sy-daily"
 main = "src/index.ts"
 compatibility_date = "2026-01-01"
 compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "sy_daily_db"
+database_name = "sy-daily-db"
+database_id = "4ffae4a0-24c2-47fd-aa97-bac50c417d94"
+migrations_dir = "./migrations"

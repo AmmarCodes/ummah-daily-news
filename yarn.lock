@@ -1136,6 +1136,11 @@
   resolved "https://registry.npmjs.org/@cloudflare/workerd-darwin-arm64/-/workerd-darwin-arm64-1.20260301.1.tgz"
   integrity sha512-PPIetY3e67YBr9O4UhILK8nbm5TqUDl14qx4rwFNrRSBOvlzuczzbd4BqgpAtbGVFxKp1PWpjAnBvGU/OI/tLQ==
 
+"@cloudflare/workers-types@^4.20260226.1", "@cloudflare/workers-types@^4.20260301.1":
+  version "4.20260301.1"
+  resolved "https://registry.npmjs.org/@cloudflare/workers-types/-/workers-types-4.20260301.1.tgz"
+  integrity sha512-klKnECMb5A4GtVF0P5NH6rCjtyjqIEKJaz6kEtx9YPHhfFO2HUEarO+MI4F8WPchgeZqpGlEpDhRapzrOTw51Q==
+
 "@cryptography/aes@^0.1.1":
   version "0.1.1"
   resolved "https://registry.npmjs.org/@cryptography/aes/-/aes-0.1.1.tgz"
