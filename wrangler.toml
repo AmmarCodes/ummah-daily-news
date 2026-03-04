@@ -1,3 +1,28 @@
+# Secrets Configuration
+# Run these commands to configure secrets for your Cloudflare Worker:
+#
+# 1. Set the Telegram bot token:
+#    wrangler secret put TELEGRAM_BOT_TOKEN
+#
+# 2. Set the webhook secret (used to verify Telegram webhook requests):
+#    wrangler secret put TELEGRAM_WEBHOOK_SECRET
+#
+# 3. Set AI provider credentials (choose one or both):
+#    wrangler secret put OPENAI_API_KEY
+#    wrangler secret put ANTHROPIC_API_KEY
+#
+# 4. Set GitHub token for website publishing:
+#    wrangler secret put GITHUB_TOKEN
+#
+# 5. Set Telegram API credentials for channel access:
+#    wrangler secret put TELEGRAM_API_ID
+#    wrangler secret put TELEGRAM_API_HASH
+#    wrangler secret put SESSION_STRING
+#
+# 6. Set Telegram channel IDs for posting:
+#    wrangler secret put TELEGRAM_CHANNEL_ID_ENGLISH
+#    wrangler secret put TELEGRAM_CHANNEL_ID_ARABIC
+
 name = "sy-daily"
 main = "src/index.ts"
 compatibility_date = "2026-01-01"

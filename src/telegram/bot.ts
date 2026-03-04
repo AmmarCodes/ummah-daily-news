@@ -1,11 +1,14 @@
 import { Bot, InputFile } from "grammy";
+import { Env } from "../types/env";
 
 export class TelegramBot {
   bot: Bot;
   private channelId: number;
+  private env: Env | NodeJS.ProcessEnv;
 
-  constructor(channelId: number) {
-    if (!process.env.TELEGRAM_BOT_TOKEN) {
+  constructor(channelId: number, env: Env | NodeJS.ProcessEnv = process.env) {
+    const botToken = env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) {
       throw new Error("TELEGRAM_BOT_TOKEN is not set");
     }
 
@@ -13,32 +16,11 @@ export class TelegramBot {
       throw new Error("channelId is not set");
     }
 
-    this.bot = new Bot(process.env.TELEGRAM_BOT_TOKEN!, {
-      client: {
-        fetch: this.customFetch as any,
-      },
-    });
+    this.bot = new Bot(botToken);
     this.channelId = channelId;
+    this.env = env;
 
     this.setupEventHandlers();
-  }
-
-  // Custom fetch function for Lambda compatibility
-  private async customFetch(input: any, init: any) {
-    const { default: nodeFetch } = await import("node-fetch");
-
-    // Clean up AbortSignal if it's not a proper instance
-    if (init?.signal && typeof init.signal === "object") {
-      if (
-        !init.signal.constructor ||
-        init.signal.constructor.name !== "AbortSignal"
-      ) {
-        const { signal, ...cleanInit } = init;
-        return nodeFetch(input as any, cleanInit as any) as any;
-      }
-    }
-
-    return nodeFetch(input as any, init as any) as any;
   }
 
   private setupEventHandlers() {

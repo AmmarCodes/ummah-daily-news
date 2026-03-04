@@ -23,9 +23,10 @@ export interface Env {
   BUS_NAME?: string;
 
   /**
-   * Telegram configuration (for posting messages)
+   * Telegram configuration (for posting messages and webhooks)
    */
   TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
   TELEGRAM_CHANNEL_ID_ENGLISH?: string;
   TELEGRAM_CHANNEL_ID_ARABIC?: string;
   TELEGRAM_API_ID?: string;

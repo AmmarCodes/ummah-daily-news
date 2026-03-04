@@ -2,7 +2,7 @@
  * Cloudflare Workers Entry Point
  *
  * Main entry point for Cloudflare Workers deployment.
- * Handles cron triggers for daily news collection.
+ * Handles cron triggers for daily news collection and Telegram webhook updates.
  */
 
 import { collect } from "./news-collection/collect";
@@ -17,12 +17,54 @@ import {
   getBriefing,
 } from "./db/D1Table";
 import { Env } from "./types/env";
+import { webhookCallback } from "grammy";
+import { TelegramBot } from "./telegram/bot";
 
 const ONE_MINUTE_MILLISECONDS = 60 * 1000;
 
-/**
- * Handle scheduled cron events for daily news collection
- */
+function verifyWebhookSecret(request: Request, secret: string): boolean {
+  const secretHeader = request.headers.get("X-Telegram-Bot-Api-Secret-Token");
+  return secretHeader === secret;
+}
+
+async function handleWebhook(request: Request, env: Env): Promise<Response> {
+  const botToken = env.TELEGRAM_BOT_TOKEN;
+  const webhookSecret = env.TELEGRAM_WEBHOOK_SECRET;
+
+  if (!botToken) {
+    return new Response(
+      JSON.stringify({ error: "TELEGRAM_BOT_TOKEN not configured" }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  if (!webhookSecret) {
+    return new Response(
+      JSON.stringify({ error: "TELEGRAM_WEBHOOK_SECRET not configured" }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  if (!verifyWebhookSecret(request, webhookSecret)) {
+    return new Response(JSON.stringify({ error: "Invalid webhook secret" }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const bot = new TelegramBot(0, env);
+
+  try {
+    const handler = webhookCallback(bot.bot, "cloudflare-mod");
+    return await handler(request);
+  } catch (error) {
+    console.error("Error handling webhook:", error);
+    return new Response(JSON.stringify({ error: "Internal server error" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+}
 async function handleScheduled(
   event: ScheduledController,
   env: Env,
@@ -89,11 +131,16 @@ export default {
   },
 
   async fetch(
-    _request: Request,
-    _env: Env,
+    request: Request,
+    env: Env,
     _ctx: ExecutionContext,
   ): Promise<Response> {
-    // Fallback HTTP handler for debugging
+    const url = new URL(request.url);
+
+    if (url.pathname === "/webhook") {
+      return handleWebhook(request, env);
+    }
+
     return new Response(
       JSON.stringify({
         message: "Syrian Daily News Bot - Cloudflare Workers",
