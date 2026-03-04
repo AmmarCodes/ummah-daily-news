@@ -6,20 +6,22 @@ export async function extractSANAArticleContent(url: string) {
   try {
     const document = await fetchAndParseHTML(url);
 
-    const title =
-      document.querySelector("h1.s-title")?.textContent?.trim() || "";
-    const paragraphs = Array.from(
-      document.querySelectorAll(".entry-content.rbct p")
+    const titleElement = document.querySelector("h1.s-title");
+    const title = titleElement?.textContent?.trim() || "";
+
+    const paragraphElements = document.querySelectorAll(
+      ".entry-content.rbct p",
     );
+    const paragraphs = Array.from(paragraphElements);
     const body = paragraphs
-      .map((p) => p.textContent?.trim().replace(/\s+/g, " ") || "")
+      .map((p) => (p as any).textContent?.trim().replace(/\s+/g, " ") || "")
       .filter((text) => text.length > 0)
       .join("\n\n");
     return { title, body };
   } catch (error) {
     console.error(
       `Failed to extract from ${url}, falling back to original content. Error:`,
-      error
+      error,
     );
     return undefined;
   }

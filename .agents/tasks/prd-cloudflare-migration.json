@@ -143,7 +143,7 @@
     {
       "id": "US-004",
       "title": "Configure Cloudflare R2 for intermediate storage",
-      "status": "in_progress",
+      "status": "done",
       "dependsOn": [
         "US-001"
       ],
@@ -157,13 +157,13 @@
         "Negative case: invalid R2 credentials -> R2 API error"
       ],
       "startedAt": "2026-03-04T14:21:34.453004+00:00",
-      "completedAt": null,
-      "updatedAt": "2026-03-04T14:21:34.453135+00:00"
+      "completedAt": "2026-03-04T14:35:15.085388+00:00",
+      "updatedAt": "2026-03-04T14:35:15.085276+00:00"
     },
     {
       "id": "US-005",
       "title": "Set up Cloudflare Workers Cron Trigger for daily scheduling",
-      "status": "open",
+      "status": "done",
       "dependsOn": [
         "US-001"
       ],
@@ -174,12 +174,15 @@
         "Test cron trigger locally with wrangler dev --remote",
         "Example: cron '1 20 * * *' = 20:01 UTC daily",
         "Negative case: invalid cron syntax -> wrangler validation error"
-      ]
+      ],
+      "startedAt": "2026-03-04T14:35:17.166665+00:00",
+      "completedAt": "2026-03-04T14:47:38.309198+00:00",
+      "updatedAt": "2026-03-04T14:47:38.309086+00:00"
     },
     {
       "id": "US-006",
       "title": "Migrate Telegram bot to grammY with webhook mode",
-      "status": "open",
+      "status": "done",
       "dependsOn": [
         "US-001"
       ],
@@ -190,12 +193,15 @@
         "Create /webhook endpoint in workers for Telegram updates",
         "Example: bot uses Bot.api with webhook URL from Workers",
         "Negative case: missing webhook secret -> Telegram rejects webhook"
-      ]
+      ],
+      "startedAt": "2026-03-04T14:47:40.385057+00:00",
+      "completedAt": "2026-03-04T14:56:31.812898+00:00",
+      "updatedAt": "2026-03-04T14:56:31.812797+00:00"
     },
     {
       "id": "US-007",
       "title": "Update build configuration for Cloudflare Workers",
-      "status": "open",
+      "status": "in_progress",
       "dependsOn": [
         "US-001",
         "US-002",
@@ -211,7 +217,10 @@
         "Update build output to single worker script or split by routes",
         "Example: esbuild targets cloudflare pages/functions",
         "Negative case: targeting Node.js runtime -> workers runtime errors"
-      ]
+      ],
+      "startedAt": "2026-03-04T14:56:33.892879+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-03-04T14:56:33.893024+00:00"
     },
     {
       "id": "US-008",

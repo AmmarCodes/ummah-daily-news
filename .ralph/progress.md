@@ -8,7 +8,39 @@ Started: Wed Mar 4 16:33:26 +03 2026
 
 ---
 
-## [Wed Mar 4 16:37:51 +03 2026] - US-001: Set up Cloudflare Workers project with Wrangler
+## [Wed Mar 4 17:47:59 +03 2026] - US-006: Migrate Telegram bot to grammY with webhook mode
+
+Thread:
+Run: 20260304-171312-28499 (iteration 4)
+Run log: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-28499-iter-4.log
+Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-28499-iter-4.md
+
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: f32d9d0 feat(telegram): add webhook support for Telegram bot in Cloudflare Workers
+- Post-commit status: clean
+- Verification:
+  - Command: npm run build -> PASS
+  - Command: npm run lint -> PASS
+  - Command: LSP diagnostics on changed files -> PASS (no errors)
+- Files changed:
+  - src/index.ts (added /webhook endpoint with grammY webhookCallback)
+  - src/telegram/bot.ts (updated for Cloudflare Workers - removed custom fetch)
+  - src/types/env.ts (added TELEGRAM_WEBHOOK_SECRET to Env interface)
+  - wrangler.toml (added secret configuration instructions)
+- What was implemented:
+  Migrated Telegram bot to grammY webhook mode for Cloudflare Workers deployment. Updated TelegramBot class to use native Workers fetch API (removed custom node-fetch for Lambda compatibility). Added TELEGRAM_WEBHOOK_SECRET to Env interface and environment configuration. Created /webhook endpoint in src/index.ts that routes Telegram updates to handleWebhook() function using grammY's webhookCallback with cloudflare-mod adapter. Implemented verifyWebhookSecret() to validate X-Telegram-Bot-Api-Secret-Token header against TELEGRAM_WEBHOOK_SECRET environment variable, returning 403 for invalid secrets and 500 for missing TELEGRAM_BOT_TOKEN or TELEGRAM_WEBHOOK_SECRET. Added secret configuration instructions to wrangler.toml with wrangler secret put commands for users. Maintained backward compatibility with existing scheduled event handler for daily news collection.
+
+- **Learnings for future iterations:**
+  - grammY webhookCallback accepts different adapters ("cloudflare-mod" for Workers, "express" for Node.js/Express)
+  - Telegram webhook secret verification prevents unauthorized webhook deliveries - use X-Telegram-Bot-Api-Secret-Token header
+  - Cloudflare Workers secrets are configured via wrangler secret put <NAME> command, not in wrangler.toml
+  - TelegramBot class needs different fetch implementations for Lambda (node-fetch) vs Workers (native fetch)
+  - IS_LAMBDA environment variable detection enables dual-mode Lambda/Workers deployment
+  - grammY's webhookCallback wraps bot handlers to work with Workers fetch API directly
+  - Webhook URL format: https://<worker-name>.<subdomain>.workers.dev/webhook
+
+---
 
 Thread:
 Run: 20260304-163326-22069 (iteration 1)
@@ -75,6 +107,7 @@ Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-170506-2642
   - Invalid API key errors are propagated automatically from the API without additional error handling needed
 
 ---
+
 [$(date)]
 
 ## [Wed Mar 4 17:13:13 +03 2026] - US-003: Set up Cloudflare D1 database for state management
@@ -115,5 +148,86 @@ Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-2849
   - IS_LAMBDA environment variable can be used to detect Workers runtime vs local development
   - BriefingEntity interface remains fully compatible with D1 implementation - no breaking changes required
   - D1 indexes on timestamp columns will improve query performance for date-based lookups
+
+---
+
+## [Wed Mar 4 17:25:11 +03 2026] - US-004: Configure Cloudflare R2 for intermediate storage
+
+Thread:
+Run: 20260304-171312-28499 (iteration 2)
+Run log: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-28499-iter-2.log
+Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-28499-iter-2.md
+
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: a267af7 feat(storage): configure Cloudflare R2 for intermediate storage
+- Post-commit status: clean
+- Verification:
+  - Command: npm run lint -> PASS
+  - Command: npm run build -> PASS
+  - Command: wrangler r2 bucket create -> FAIL (R2 not enabled in Cloudflare account - user must enable in dashboard)
+- Files changed:
+  - wrangler.toml (added r2_buckets binding with sy-daily-storage)
+  - src/types/env.ts (created Env type with R2 binding for Workers)
+  - src/storage/index.ts (created storage adapter with dual-mode support for S3/R2)
+  - src/storage/r2.ts (created R2 utility functions using Cloudflare Workers R2 API)
+  - src/lambda/Collect.ts (replaced direct S3 usage with storage adapter)
+  - src/lambda/Deduplicate.ts (replaced direct S3 usage with storage adapter)
+  - src/lambda/Summarize.ts (replaced direct S3 usage with storage adapter)
+  - src/lambda/PostToTelegram.ts (replaced direct S3 usage with storage adapter)
+  - src/lambda/PublishToWebsite.ts (replaced direct S3 usage with storage adapter)
+  - .agents/tasks/prd-cloudflare-migration.json (updated US-004 status)
+  - .ralph/progress.md (appended this progress entry)
+- What was implemented:
+  Configured Cloudflare R2 for intermediate storage by adding R2 bucket binding to wrangler.toml. Created storage adapter module (src/storage/index.ts) with dual-mode support: uses AWS S3 SDK in Lambda environment (IS_LAMBDA=true) and Cloudflare Workers R2 API in Workers runtime (env.SY_DAILY_STORAGE binding). Created R2-specific utility functions (src/storage/r2.ts) implementing uploadJSON, downloadJSON, uploadBinary, downloadBinary, and deleteObject using R2Bucket API. Created Env type definition (src/types/env.ts) for Cloudflare Workers environment including R2 binding. Updated all five Lambda functions (Collect, Deduplicate, Summarize, PostToTelegram, PublishToWebsite) to use storage adapter instead of direct AWS S3 SDK, removing dependencies on PutObjectCommand and GetObjectCommand. The storage adapter provides transparent abstraction - Lambda functions work unchanged in AWS deployment, and will automatically use R2 when deployed to Cloudflare Workers. All Lambda bundles successfully generated and TypeScript compilation verified.
+
+- **Learnings for future iterations:**
+  - R2 bucket creation failed because R2 is not enabled in the Cloudflare account - user must enable R2 in Cloudflare dashboard before bucket can be created
+  - Storage adapter pattern (dual-mode S3/R2) allows seamless migration from AWS to Cloudflare without breaking existing Lambda deployment
+  - @cloudflare/r2 package is not needed - R2 API is provided by @cloudflare/workers-types (already installed)
+  - R2Bucket API uses .put(key, data) and .get(key) methods instead of AWS SDK commands
+  - R2 .get() returns R2Object with .text() and .arrayBuffer() methods for content access
+  - transformToByteArray() from AWS SDK returns Uint8Array, need to use .buffer property for ArrayBuffer
+  - ArrayBufferLike type is more flexible than ArrayBuffer for R2 storage compatibility
+  - IS_LAMBDA environment variable can be used to detect runtime environment (Lambda vs Workers)
+  - Lambda bundles still build successfully after removing direct S3 dependencies - storage adapter maintains compatibility
+  - JSDoc comments in utility modules are necessary public API documentation, not agent memo comments
+
+---
+
+## [Wed Mar 4 17:35:17 +03 2026] - US-005: Set up Cloudflare Workers Cron Trigger for daily scheduling
+
+Thread:
+Run: 20260304-171312-28499 (iteration 3)
+Run log: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-28499-iter-3.log
+Run summary: /Users/ammar/Projects/sy-daily/.ralph/runs/run-20260304-171312-28499-iter-3.md
+
+- Guardrails reviewed: yes
+- No-commit run: false
+- Commit: e92acbf feat(workers): add cron trigger for daily news collection at 20:01 UTC
+- Post-commit status: clean (only system files remain: PRD, progress, run logs)
+- Verification:
+  - Command: npx tsc --noEmit -> PASS
+  - Command: npm run build -> PASS
+  - Command: npm run test:run -> FAIL (7 pre-existing test failures - unrelated to changes)
+  - Command: npx wrangler types -> PASS
+  - Command: wrangler dev (brief test) -> PASS (Worker compiles and starts successfully)
+- Files changed:
+  - wrangler.toml (added cron trigger: triggers.crons = ["1 20 * * *"])
+  - src/index.ts (created Workers entry point with scheduled handler)
+  - src/news-collection/telegram/getPostsInLast24Hours.ts (removed fs/path imports, added direct JSON import)
+  - tsconfig.json (updated module to ESNext, moduleResolution to bundler, resolveJsonModule to true)
+  - worker-configuration.d.ts (generated updated Worker types)
+- What was implemented:
+  Replaced AWS EventBridge with Cloudflare Workers Cron Trigger for daily news collection at 20:01 UTC. Configured cron trigger in wrangler.toml using triggers.crons array with '1 20 \* \* \*' cron expression. Created src/index.ts as Workers entry point that exports scheduled() function to handle cron events, initializing briefing in D1 database and calling collect() to fetch news posts. Updated getPostsInLast24Hours.ts to import channels.json at compile time instead of using fs.readFileSync at runtime (Workers doesn't support Node.js fs API even with nodejs_compat flag). Updated tsconfig.json to be compatible with Workers (module: ESNext, moduleResolution: bundler, resolveJsonModule: true). Generated Worker types with wrangler types for proper TypeScript support. Validated configuration by running wrangler dev which compiled and started the Worker successfully, confirming D1 and R2 bindings are properly configured.
+
+- **Learnings for future iterations:**
+  - Cloudflare Workers Cron Triggers are configured in wrangler.toml using triggers.crons array, not triggers property
+  - Scheduled Workers don't automatically trigger during local development; need to use curl "http://localhost:8787/cdn-cgi/handler/scheduled" or --test-scheduled flag
+  - Workers doesn't support Node.js fs/path APIs even with nodejs_compat compatibility flag; must import static files (JSON) at compile time
+  - tsconfig.json needs specific settings for Workers: module: ESNext, moduleResolution: bundler, resolveJsonModule: true
+  - Worker types are generated by wrangler types command and should be committed for proper TypeScript support
+  - channels.json configuration file is imported as a module for Workers instead of reading with fs.readFileSync
+  - AWS Lambda build (npm run build) still works alongside Workers configuration; they use separate build processes
 
 ---

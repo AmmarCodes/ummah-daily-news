@@ -29,14 +29,14 @@ const loadTestData = () => {
         const resultPath = join(
           __dirname,
           ARTICLE_SAMPLES_FOLDER,
-          `${name}-result.json`
+          `${name}-result.json`,
         );
         if (!existsSync(resultPath)) {
           throw new Error(`Result file for ${file} not found`);
         }
         const htmlContent = readFileSync(htmlPath, "utf-8");
         const expectedResult = JSON.parse(
-          readFileSync(resultPath, "utf-8")
+          readFileSync(resultPath, "utf-8"),
         ) as ArticleSample["expectedResult"];
         return { name, html: htmlContent, expectedResult };
       }
@@ -59,14 +59,13 @@ describe("extractSANAArticleContent", () => {
 
   beforeEach(async () => {
     // Mock the browser module before importing
-    vi.doMock("../src/browser", () => ({
+    vi.doMock("../src/news-collection/browser", () => ({
       fetchAndParseHTML: mockFetchAndParseHTML,
     }));
 
     // Dynamically import the module under test after mocking
-    const module = await import(
-      "../src/news-collection/extractSANAArticleContent"
-    );
+    const module =
+      await import("../src/news-collection/extractSANAArticleContent");
     extractSANAArticleContent = module.extractSANAArticleContent;
   });
 
@@ -95,7 +94,7 @@ describe("extractSANAArticleContent", () => {
         beforeEach(async () => {
           // Mock fetchAndParseHTML to return the sample HTML as a Document
           mockFetchAndParseHTML.mockResolvedValue(
-            mockDocumentFromHTML(sample.html)
+            mockDocumentFromHTML(sample.html),
           );
         });
 
@@ -130,7 +129,7 @@ describe("extractSANAArticleContent", () => {
       const mockUrl = "https://sana.sy/?p=2215080";
 
       mockFetchAndParseHTML.mockResolvedValue(
-        mockDocumentFromHTML("<html><body></body></html>")
+        mockDocumentFromHTML("<html><body></body></html>"),
       );
 
       const result = await extractSANAArticleContent(mockUrl);
@@ -143,8 +142,8 @@ describe("extractSANAArticleContent", () => {
 
       mockFetchAndParseHTML.mockResolvedValue(
         mockDocumentFromHTML(
-          '<html><body><div class="entry-content rbct"><p>Test body</p></div></body></html>'
-        )
+          '<html><body><div class="entry-content rbct"><p>Test body</p></div></body></html>',
+        ),
       );
 
       const result = await extractSANAArticleContent(mockUrl);
@@ -158,8 +157,8 @@ describe("extractSANAArticleContent", () => {
 
       mockFetchAndParseHTML.mockResolvedValue(
         mockDocumentFromHTML(
-          '<html><body><h1 class="s-title">Test Title</h1></body></html>'
-        )
+          '<html><body><h1 class="s-title">Test Title</h1></body></html>',
+        ),
       );
 
       const result = await extractSANAArticleContent(mockUrl);

@@ -1,6 +1,10 @@
 import axios from "axios";
-import { JSDOM } from "jsdom";
-import { loadChannelConfig } from "./getPostsInLast24Hours";
+import {
+  DOMParser,
+  HTMLElement,
+  HTMLAnchorElement,
+  HTMLTimeElement,
+} from "linkedom";
 
 export interface TelegramPost {
   id: number;
@@ -40,7 +44,9 @@ function extractIdFromPermalink(href: string): number | null {
 /** Normalize inner text (preserve line breaks reasonably) */
 function normalizeText(el: HTMLElement): string {
   // Replace <br> tags with newlines before extracting text
-  el.querySelectorAll("br").forEach((br) => (br.outerHTML = "\n"));
+  el.querySelectorAll("br").forEach((br) => {
+    br.outerHTML = "\n";
+  });
   const text = el.textContent ?? "";
   // Replace non-breaking spaces with regular spaces
   return text.replace(/\u00A0/g, " ").trim();
@@ -48,37 +54,41 @@ function normalizeText(el: HTMLElement): string {
 
 /** Parse the HTML of a /s page into TelegramPost[] */
 function parsePostsFromHtml(html: string): TelegramPost[] {
-  const dom = new JSDOM(html);
-  const doc = dom.window.document;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
 
-  const wraps = Array.from(
-    doc.querySelectorAll<HTMLElement>(".tgme_widget_message_wrap")
-  );
+  const wraps = Array.from(doc.querySelectorAll(".tgme_widget_message_wrap"));
 
   const posts: TelegramPost[] = [];
   for (const wrap of wraps) {
+    if (!(wrap instanceof HTMLElement)) continue;
+
     // Extract permalink & post ID from message date link
-    const dateLink = wrap.querySelector<HTMLAnchorElement>(
-      "a.tgme_widget_message_date"
-    );
-    if (!dateLink?.href) continue;
+    const dateLink = wrap.querySelector("a.tgme_widget_message_date");
+    if (
+      !dateLink ||
+      !(dateLink instanceof HTMLAnchorElement) ||
+      !dateLink.href
+    ) {
+      continue;
+    }
 
     const permalink = dateLink.href;
     const id = extractIdFromPermalink(permalink);
     if (id === null) continue;
 
     // Extract ISO date from time element's datetime attribute
-    const timeEl = dateLink.querySelector<HTMLTimeElement>("time[datetime]");
+    const timeEl = dateLink.querySelector("time[datetime]");
     const dateTimeAttr = timeEl?.getAttribute("datetime");
     const date = dateTimeAttr || new Date().toISOString();
 
     // Extract text body and caption (photos have captions, text posts have body)
-    const textEl = wrap.querySelector<HTMLElement>(".tgme_widget_message_text");
-    const captionEl = wrap.querySelector<HTMLElement>(
-      ".tgme_widget_message_caption"
-    );
-    const body = textEl ? normalizeText(textEl) : "";
-    const caption = captionEl ? normalizeText(captionEl) : "";
+    const textEl = wrap.querySelector(".tgme_widget_message_text");
+    const captionEl = wrap.querySelector(".tgme_widget_message_caption");
+
+    const body = textEl instanceof HTMLElement ? normalizeText(textEl) : "";
+    const caption =
+      captionEl instanceof HTMLElement ? normalizeText(captionEl) : "";
 
     const text = [body, caption].filter(Boolean).join("\n\n");
 
@@ -95,7 +105,7 @@ function parsePostsFromHtml(html: string): TelegramPost[] {
  * Example: await fetchChannelPosts({ channel: "AlekhbariahSY" })
  */
 export async function fetchChannelPosts(
-  opts: FetchOptions
+  opts: FetchOptions,
 ): Promise<FetchChannelPostsResult> {
   const { channel, beforeId, timeoutMs = 10_000, headers = {} } = opts;
 
@@ -139,7 +149,7 @@ async function exponentialBackoffWithJitter(
   requestCount: number,
   baseDelay: number = 50,
   maxDelay: number = 5000,
-  retryAfter?: number
+  retryAfter?: number,
 ): Promise<void> {
   if (requestCount <= 1 && !retryAfter) return;
 
@@ -165,10 +175,18 @@ const MAX_REQUESTS = 25;
 
 async function fetchChannel(channel: string, startTime: Date, endTime: Date) {
   const startWatch = new Date();
-  const startMemory = process.memoryUsage();
+  // process.memoryUsage() is not available in Cloudflare Workers
+  // Use a simplified tracking object for Workers compatibility
+  const startMemory = {
+    rss: 0,
+    heapTotal: 0,
+    heapUsed: 0,
+    external: 0,
+    arrayBuffers: 0,
+  };
 
   console.log(
-    `Fetching posts between ${startTime.toISOString()} and ${endTime.toISOString()}`
+    `Fetching posts between ${startTime.toISOString()} and ${endTime.toISOString()}`,
   );
 
   let fetchedPosts = [];
@@ -178,8 +196,14 @@ async function fetchChannel(channel: string, startTime: Date, endTime: Date) {
   let requestCount = 0;
   let lastRetryAfter: number | undefined = undefined;
 
-  // Track peak memory usage
-  let peakMemory: NodeJS.MemoryUsage = {
+  // Track peak memory usage (simplified for Workers)
+  let peakMemory: {
+    rss: number;
+    heapTotal: number;
+    heapUsed: number;
+    external: number;
+    arrayBuffers: number;
+  } = {
     rss: startMemory.rss,
     heapTotal: startMemory.heapTotal,
     heapUsed: startMemory.heapUsed,
@@ -212,7 +236,7 @@ async function fetchChannel(channel: string, startTime: Date, endTime: Date) {
         rateLimitBreaks,
         200,
         5000,
-        lastRetryAfter
+        lastRetryAfter,
       );
       continue; // Retry the same request
     }
@@ -221,12 +245,12 @@ async function fetchChannel(channel: string, startTime: Date, endTime: Date) {
     if (status !== 200) {
       consecutiveFailures++;
       console.log(
-        `HTTP ${status} received (${consecutiveFailures}/3 consecutive failures)`
+        `HTTP ${status} received (${consecutiveFailures}/3 consecutive failures)`,
       );
 
       if (consecutiveFailures >= 3) {
         console.log(
-          `Too many consecutive failures (${consecutiveFailures}), stopping`
+          `Too many consecutive failures (${consecutiveFailures}), stopping`,
         );
         break;
       }
@@ -236,7 +260,7 @@ async function fetchChannel(channel: string, startTime: Date, endTime: Date) {
         consecutiveFailures,
         100,
         3000,
-        lastRetryAfter
+        lastRetryAfter,
       );
       continue; // Retry the same request
     }
@@ -270,21 +294,29 @@ async function fetchChannel(channel: string, startTime: Date, endTime: Date) {
     console.log(
       `Fetched ${posts.length} posts, ${
         postsInRangeInThisRequest.length
-      } in range. IDs: [${posts.map((p) => p.id)}]. Used beforeId ${beforeId}`
+      } in range. IDs: [${posts.map((p) => p.id)}]. Used beforeId ${beforeId}`,
     );
 
     // Track peak memory usage across requests
-    const currentMemory = process.memoryUsage();
+    // In Cloudflare Workers, we don't have process.memoryUsage()
+    // Use placeholder tracking for compatibility
+    const currentMemory = {
+      rss: 0,
+      heapTotal: 0,
+      heapUsed: 0,
+      external: 0,
+      arrayBuffers: 0,
+    };
     peakMemory.rss = Math.max(peakMemory.rss, currentMemory.rss);
     peakMemory.heapTotal = Math.max(
       peakMemory.heapTotal,
-      currentMemory.heapTotal
+      currentMemory.heapTotal,
     );
     peakMemory.heapUsed = Math.max(peakMemory.heapUsed, currentMemory.heapUsed);
     peakMemory.external = Math.max(peakMemory.external, currentMemory.external);
     peakMemory.arrayBuffers = Math.max(
       peakMemory.arrayBuffers,
-      currentMemory.arrayBuffers
+      currentMemory.arrayBuffers,
     );
 
     // Use smallest post ID for next pagination request
@@ -296,7 +328,7 @@ async function fetchChannel(channel: string, startTime: Date, endTime: Date) {
   fetchedPosts.sort((a, b) => b.id - a.id);
 
   console.log(
-    `Fetched a total of ${fetchedPosts.length}, ${postsInRange.length} in time range`
+    `Fetched a total of ${fetchedPosts.length}, ${postsInRange.length} in time range`,
   );
 
   const endWatch = new Date();
@@ -315,9 +347,16 @@ async function fetchChannel(channel: string, startTime: Date, endTime: Date) {
 export async function getPostsForAllChannels(
   channels: string[],
   startTime: Date,
-  endTime: Date
+  endTime: Date,
 ) {
-  const startMemory = process.memoryUsage();
+  // process.memoryUsage() is not available in Cloudflare Workers
+  const startMemory = {
+    rss: 0,
+    heapTotal: 0,
+    heapUsed: 0,
+    external: 0,
+    arrayBuffers: 0,
+  };
 
   const results: Record<
     string,
@@ -327,12 +366,24 @@ export async function getPostsForAllChannels(
       requestCount: number;
       timeTaken: number;
       rateLimitBreaks: number;
-      peakMemory: NodeJS.MemoryUsage;
+      peakMemory: {
+        rss: number;
+        heapTotal: number;
+        heapUsed: number;
+        external: number;
+        arrayBuffers: number;
+      };
     }
   > = {};
 
-  // Track global peak memory across all channels
-  let globalPeakMemory: NodeJS.MemoryUsage = {
+  // Track global peak memory across all channels (simplified for Workers)
+  let globalPeakMemory: {
+    rss: number;
+    heapTotal: number;
+    heapUsed: number;
+    external: number;
+    arrayBuffers: number;
+  } = {
     rss: startMemory.rss,
     heapTotal: startMemory.heapTotal,
     heapUsed: startMemory.heapUsed,
@@ -348,30 +399,30 @@ export async function getPostsForAllChannels(
     const fetchChannelResult = await fetchChannel(
       channelHandle,
       startTime,
-      endTime
+      endTime,
     );
     results[channelHandle] = fetchChannelResult;
 
     // Track global peak memory across all channels
     globalPeakMemory.rss = Math.max(
       globalPeakMemory.rss,
-      fetchChannelResult.peakMemory.rss
+      fetchChannelResult.peakMemory.rss,
     );
     globalPeakMemory.heapTotal = Math.max(
       globalPeakMemory.heapTotal,
-      fetchChannelResult.peakMemory.heapTotal
+      fetchChannelResult.peakMemory.heapTotal,
     );
     globalPeakMemory.heapUsed = Math.max(
       globalPeakMemory.heapUsed,
-      fetchChannelResult.peakMemory.heapUsed
+      fetchChannelResult.peakMemory.heapUsed,
     );
     globalPeakMemory.external = Math.max(
       globalPeakMemory.external,
-      fetchChannelResult.peakMemory.external
+      fetchChannelResult.peakMemory.external,
     );
     globalPeakMemory.arrayBuffers = Math.max(
       globalPeakMemory.arrayBuffers,
-      fetchChannelResult.peakMemory.arrayBuffers
+      fetchChannelResult.peakMemory.arrayBuffers,
     );
 
     // Delay between channels to avoid overwhelming servers
@@ -389,7 +440,7 @@ export async function getPostsForAllChannels(
         timeTaken: stats.timeTaken,
         rateLimitBreaks: stats.rateLimitBreaks,
       },
-    ])
+    ]),
   );
 
   console.log(JSON.stringify(resultsByChannel, null, 2));
@@ -397,39 +448,39 @@ export async function getPostsForAllChannels(
   console.log(
     `Total posts fetched: ${Object.values(results).reduce(
       (acc, curr) => acc + curr.fetchedPosts.length,
-      0
-    )}`
+      0,
+    )}`,
   );
   console.log(
     `Total posts in range: ${Object.values(results).reduce(
       (acc, curr) => acc + curr.postsInRange.length,
-      0
-    )}`
+      0,
+    )}`,
   );
   console.log(
     `Total requests: ${Object.values(results).reduce(
       (acc, curr) => acc + curr.requestCount,
-      0
-    )}`
+      0,
+    )}`,
   );
   console.log(
     `Total rate limit breaks: ${Object.values(results).reduce(
       (acc, curr) => acc + curr.rateLimitBreaks,
-      0
-    )}`
+      0,
+    )}`,
   );
   console.log(
     `Total time taken: ${Object.values(results).reduce(
       (acc, curr) => acc + curr.timeTaken,
-      0
-    )}`
+      0,
+    )}`,
   );
 
   console.log(
     `Average time taken per channel: ${
       Object.values(results).reduce((acc, curr) => acc + curr.timeTaken, 0) /
       Object.values(results).length
-    }`
+    }`,
   );
 
   // Calculate peak memory delta from start
@@ -453,7 +504,7 @@ export async function getPostsForAllChannels(
   };
 
   console.log(
-    `Peak memory usage delta (MB): RSS=${peakMemoryDelta.rss}, Heap Total=${peakMemoryDelta.heapTotal}, Heap Used=${peakMemoryDelta.heapUsed}, External=${peakMemoryDelta.external}`
+    `Peak memory usage delta (MB): RSS=${peakMemoryDelta.rss}, Heap Total=${peakMemoryDelta.heapTotal}, Heap Used=${peakMemoryDelta.heapUsed}, External=${peakMemoryDelta.external}`,
   );
 
   // Format posts as text with permalinks for output
@@ -461,10 +512,16 @@ export async function getPostsForAllChannels(
     Object.entries(results).map(([channelHandle, result]) => [
       channelHandle,
       result.postsInRange.map((p) => `${p.text}\n\n${p.permalink}`),
-    ])
+    ]),
   );
 
-  const endMemory = process.memoryUsage();
+  const endMemory = {
+    rss: 0,
+    heapTotal: 0,
+    heapUsed: 0,
+    external: 0,
+    arrayBuffers: 0,
+  };
   const memoryDelta = {
     rss: ((endMemory.rss - startMemory.rss) / 1024 / 1024).toFixed(2),
     heapTotal: (
@@ -485,7 +542,7 @@ export async function getPostsForAllChannels(
   };
 
   console.log(
-    `Memory usage delta (MB): RSS=${memoryDelta.rss}, Heap Total=${memoryDelta.heapTotal}, Heap Used=${memoryDelta.heapUsed}, External=${memoryDelta.external}`
+    `Memory usage delta (MB): RSS=${memoryDelta.rss}, Heap Total=${memoryDelta.heapTotal}, Heap Used=${memoryDelta.heapUsed}, External=${memoryDelta.external}`,
   );
 
   return textOnlyResults;
