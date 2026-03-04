@@ -201,7 +201,7 @@
     {
       "id": "US-007",
       "title": "Update build configuration for Cloudflare Workers",
-      "status": "in_progress",
+      "status": "done",
       "dependsOn": [
         "US-001",
         "US-002",
@@ -219,13 +219,13 @@
         "Negative case: targeting Node.js runtime -> workers runtime errors"
       ],
       "startedAt": "2026-03-04T14:56:33.892879+00:00",
-      "completedAt": null,
-      "updatedAt": "2026-03-04T14:56:33.893024+00:00"
+      "completedAt": "2026-03-04T15:13:39.940892+00:00",
+      "updatedAt": "2026-03-04T15:13:39.940802+00:00"
     },
     {
       "id": "US-008",
       "title": "Add quality gates to package.json scripts",
-      "status": "open",
+      "status": "in_progress",
       "dependsOn": [],
       "description": "As a developer, I want to ensure all quality gates (typecheck, lint, test, build) pass before deployment so that code quality is maintained.",
       "acceptanceCriteria": [
@@ -235,7 +235,10 @@
         "Ensure npm run build produces valid output",
         "Example: all commands run successfully",
         "Negative case: any command fails -> CI should fail"
-      ]
+      ],
+      "startedAt": "2026-03-04T15:13:42.019210+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-03-04T15:13:42.019357+00:00"
     },
     {
       "id": "US-009",

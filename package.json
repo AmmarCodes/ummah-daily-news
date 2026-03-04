@@ -6,6 +6,7 @@
   "scripts": {
     "start": "ts-node src/local/index.ts",
     "build": "rimraf dist && ts-node esbuild.config.ts",
+    "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
     "banners:compose": "ts-node src/banner/composeBanners.ts",
     "banners:update": "rimraf composedBanners && ./updateComposedBanners.sh",
