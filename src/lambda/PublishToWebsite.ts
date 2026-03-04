@@ -1,5 +1,4 @@
 import { EventBridgeHandler } from "aws-lambda";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import {
   ContentLanguage,
   ProcessedNews,
@@ -19,75 +18,50 @@ import {
 } from "../db/BriefingEntity";
 import { getMostFrequentLabels } from "../mostFrequentLabel";
 import { addDateToBanner } from "../banner/newsBanner";
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-});
+import { downloadJSON, downloadBinary } from "../storage";
 
 const eventBridgeClient = new EventBridgeClient({
   region: process.env.AWS_REGION || "us-east-1",
 });
 
-if (!process.env.BUCKET_NAME) {
-  throw new Error("BUCKET_NAME is not set");
-}
-
-const BUCKET_NAME = process.env.BUCKET_NAME;
-
 const { GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO, GITHUB_BRANCH } = process.env;
 
 if (!GITHUB_TOKEN || !GITHUB_OWNER || !GITHUB_REPO) {
   throw new Error(
-    "Missing required env vars: GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO"
+    "Missing required env vars: GITHUB_TOKEN, GITHUB_OWNER, GITHUB_REPO",
   );
 }
 
 async function getBanner(
   processedNews: ProcessedNews,
-  contentLanguage: ContentLanguage
+  contentLanguage: ContentLanguage,
 ) {
   const mostFrequentLabel = getMostFrequentLabels(
-    processedNews.newsResponse.newsItems
+    processedNews.newsResponse.newsItems,
   )[0];
   console.log(`🔍 Most frequent label: ${mostFrequentLabel}`);
 
   console.log("Posting summary to Telegram...");
 
-  // Get the pre-composed banner from S3
+  // Get the pre-composed banner from storage (S3 in Lambda, R2 in Workers)
   const bannerKey = `composedBanners/${contentLanguage}/${mostFrequentLabel}.jpg`;
   const fallbackKey = `composedBanners/${contentLanguage}/other.jpg`;
-  console.log(`Fetching banner from S3: ${bannerKey}`);
+  console.log(`Fetching banner from storage: ${bannerKey}`);
 
-  let bannerResponse;
+  let bannerBuffer: ArrayBufferLike;
   try {
-    const getBannerCommand = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: bannerKey,
-    });
-    bannerResponse = await s3Client.send(getBannerCommand);
+    bannerBuffer = await downloadBinary(bannerKey);
   } catch (error) {
     console.log(
-      `Banner not found at ${bannerKey}, falling back to ${fallbackKey}`
+      `Banner not found at ${bannerKey}, falling back to ${fallbackKey}`,
     );
-    const getFallbackCommand = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
-      Key: fallbackKey,
-    });
-    bannerResponse = await s3Client.send(getFallbackCommand);
+    bannerBuffer = await downloadBinary(fallbackKey);
   }
-
-  if (!bannerResponse.Body) {
-    throw new Error(
-      `No banner found at S3 keys: ${bannerKey} or ${fallbackKey}`
-    );
-  }
-
-  const bannerBuffer = await bannerResponse.Body.transformToByteArray();
 
   // Add date to the banner
   const banner = await addDateToBanner(
     Buffer.from(bannerBuffer),
-    processedNews.date
+    processedNews.date,
   );
   return banner;
 }
@@ -100,27 +74,13 @@ export const handler: EventBridgeHandler<
   console.log("Received EventBridge event:", JSON.stringify(event));
 
   try {
-    // Extract S3 details from EventBridge event
-    const bucket = BUCKET_NAME;
+    // Download cached data from storage (S3 in Lambda, R2 in Workers)
     const key = `summarized-news/${event.detail.date}.json`;
 
-    console.log(`Processing S3 object: ${bucket}/${key}`);
+    console.log(`Processing storage object: ${key}`);
 
-    // Download the cached data from S3
-    const getObjectCommand = new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    });
-
-    const response = await s3Client.send(getObjectCommand);
-
-    if (!response.Body) {
-      throw new Error("No data received from S3");
-    }
-
-    const newsDataJson = await response.Body.transformToString();
-
-    const newsData = ProcessedNewsSchema.parse(JSON.parse(newsDataJson));
+    const newsData = await downloadJSON<ProcessedNews>(key);
+    const validatedNews = ProcessedNewsSchema.parse(newsData);
 
     if (process.env.SIMULATE_WEBSITE_PUBLISH === "true") {
       console.log("Simulating website publish");
@@ -142,7 +102,7 @@ export const handler: EventBridgeHandler<
               Detail: JSON.stringify({ date: newsData.date }),
             },
           ],
-        })
+        }),
       );
       return;
     }

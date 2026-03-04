@@ -1,5 +1,4 @@
 import { ScheduledHandler } from "aws-lambda";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { collect } from "../news-collection/collect";
 import { CollectedNewsData } from "../types";
 import {
@@ -10,20 +9,15 @@ import {
   initializeBriefing,
   updateBriefingCollectedTime,
 } from "../db/BriefingEntity";
+import { uploadJSON } from "../storage";
 import {
   EventBridgeClient,
   PutEventsCommand,
 } from "@aws-sdk/client-eventbridge";
 
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-});
-
 const eventBridgeClient = new EventBridgeClient({
   region: process.env.AWS_REGION || "us-east-1",
 });
-
-const BUCKET_NAME = process.env.S3_BUCKET_NAME!;
 
 const ONE_MINUTE_MILLISECONDS = 60 * 1000;
 
@@ -34,7 +28,7 @@ export const handler: ScheduledHandler = async (event) => {
     const lastMidnightInDamascus =
       getEpochSecondsMostRecent_11_PM_InDamascus(date) * 1000;
     const damascusDate = formatDateUTCPlus3(
-      new Date(lastMidnightInDamascus - ONE_MINUTE_MILLISECONDS) // 1 minute before midnight, this is to get the previous day's date
+      new Date(lastMidnightInDamascus - ONE_MINUTE_MILLISECONDS), // 1 minute before midnight, this is to get the previous day's date
     );
 
     await initializeBriefing({ date: damascusDate });
@@ -46,17 +40,10 @@ export const handler: ScheduledHandler = async (event) => {
       ...collectedNews,
       date: damascusDate,
     };
-    // Upload to S3 with date as key
+    // Upload to storage (S3 in Lambda, R2 in Workers) with date as key
     const s3Key = `collected-news/${damascusDate}.json`;
 
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: s3Key,
-        Body: JSON.stringify(collectedNewsWithDate, null, 2),
-        ContentType: "application/json",
-      })
-    );
+    await uploadJSON(s3Key, collectedNewsWithDate);
 
     await updateBriefingCollectedTime({
       date: damascusDate,
@@ -73,9 +60,9 @@ export const handler: ScheduledHandler = async (event) => {
             Detail: JSON.stringify({ date: damascusDate }),
           },
         ],
-      })
+      }),
     );
-    console.log(`Successfully uploaded news data to S3: ${s3Key}`);
+    console.log(`Successfully uploaded news data: ${s3Key}`);
   } catch (error) {
     console.error("Error in Collect function:", error);
     throw error;

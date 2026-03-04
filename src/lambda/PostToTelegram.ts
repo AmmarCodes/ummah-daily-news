@@ -1,5 +1,4 @@
 import { EventBridgeHandler } from "aws-lambda";
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import {
   ProcessedNewsSchema,
   ContentLanguage,
@@ -10,10 +9,7 @@ import { getMostFrequentLabels } from "../mostFrequentLabel";
 import { TelegramUser } from "../telegram/user";
 import { addDateToBanner } from "../banner/newsBanner";
 import { getBriefing, updateBriefingPost } from "../db/BriefingEntity";
-
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-});
+import { downloadJSON, downloadBinary } from "../storage";
 
 if (!process.env.TELEGRAM_CHANNEL_ID) {
   throw new Error("TELEGRAM_CHANNEL_ID is not set");
@@ -44,38 +40,25 @@ if (!process.env.BUCKET_NAME) {
 const BUCKET_NAME = process.env.BUCKET_NAME;
 
 export const handler: EventBridgeHandler<string, Payload, void> = async (
-  event
+  event,
 ) => {
   console.log("Received EventBridge event:", JSON.stringify(event));
 
   try {
     const date = event.detail.date;
-    const bucket = BUCKET_NAME;
     const key = `summarized-news/${date}.json`;
 
-    console.log(`Processing S3 object: ${bucket}/${key}`);
+    console.log(`Processing storage object: ${key}`);
 
-    if (!bucket || !key) {
-      throw new Error("Missing bucket or key in EventBridge event detail");
+    if (!key) {
+      throw new Error("Missing key in EventBridge event detail");
     }
 
-    console.log(`Processing S3 object: ${bucket}/${key}`);
+    console.log(`Processing storage object: ${key}`);
 
-    // Download the cached data from S3
-    const getObjectCommand = new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    });
-
-    const response = await s3Client.send(getObjectCommand);
-
-    if (!response.Body) {
-      throw new Error("No data received from S3");
-    }
-
-    const newsDataJson = await response.Body.transformToString();
-
-    const newsData = ProcessedNewsSchema.parse(JSON.parse(newsDataJson));
+    // Download cached data from storage (S3 in Lambda, R2 in Workers)
+    const content = await downloadJSON(key);
+    const newsData = ProcessedNewsSchema.parse(content);
 
     const briefing = await getBriefing(newsData.date);
 
@@ -85,11 +68,11 @@ export const handler: EventBridgeHandler<string, Payload, void> = async (
     if (
       briefing.posts?.find(
         (post) =>
-          post.platform === "telegram" && post.language === CONTENT_LANGUAGE
+          post.platform === "telegram" && post.language === CONTENT_LANGUAGE,
       ) !== undefined
     ) {
       throw new Error(
-        `Briefing ${newsData.date} already posted to Telegram in ${CONTENT_LANGUAGE}`
+        `Briefing ${newsData.date} already posted to Telegram in ${CONTENT_LANGUAGE}`,
       );
     }
 
@@ -98,7 +81,7 @@ export const handler: EventBridgeHandler<string, Payload, void> = async (
     const formattedNews = prioritizeAndFormat(
       newsData,
       CONTENT_LANGUAGE,
-      "telegram"
+      "telegram",
     );
     if (!formattedNews) {
       console.log("No news items found, skipping posting.");
@@ -110,41 +93,25 @@ export const handler: EventBridgeHandler<string, Payload, void> = async (
 
     console.log("Posting summary to Telegram...");
 
-    // Get the pre-composed banner from S3
+    // Get the pre-composed banner from storage (S3 in Lambda, R2 in Workers)
     const bannerKey = `composedBanners/${CONTENT_LANGUAGE}/${mostFrequentLabel}.jpg`;
     const fallbackKey = `composedBanners/${CONTENT_LANGUAGE}/other.jpg`;
-    console.log(`Fetching banner from S3: ${bannerKey}`);
+    console.log(`Fetching banner from storage: ${bannerKey}`);
 
-    let bannerResponse;
+    let bannerBuffer: ArrayBufferLike;
     try {
-      const getBannerCommand = new GetObjectCommand({
-        Bucket: bucket,
-        Key: bannerKey,
-      });
-      bannerResponse = await s3Client.send(getBannerCommand);
+      bannerBuffer = await downloadBinary(bannerKey);
     } catch (error) {
       console.log(
-        `Banner not found at ${bannerKey}, falling back to ${fallbackKey}`
+        `Banner not found at ${bannerKey}, falling back to ${fallbackKey}`,
       );
-      const getFallbackCommand = new GetObjectCommand({
-        Bucket: bucket,
-        Key: fallbackKey,
-      });
-      bannerResponse = await s3Client.send(getFallbackCommand);
+      bannerBuffer = await downloadBinary(fallbackKey);
     }
-
-    if (!bannerResponse.Body) {
-      throw new Error(
-        `No banner found at S3 keys: ${bannerKey} or ${fallbackKey}`
-      );
-    }
-
-    const bannerBuffer = await bannerResponse.Body.transformToByteArray();
 
     // Add date to the banner
     const banner = await addDateToBanner(
       Buffer.from(bannerBuffer),
-      newsData.date
+      newsData.date,
     );
 
     const user = new TelegramUser();

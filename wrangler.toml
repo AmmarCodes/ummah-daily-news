@@ -8,3 +8,7 @@ binding = "sy_daily_db"
 database_name = "sy-daily-db"
 database_id = "4ffae4a0-24c2-47fd-aa97-bac50c417d94"
 migrations_dir = "./migrations"
+
+[[r2_buckets]]
+binding = "SY_DAILY_STORAGE"
+bucket_name = "sy-daily-storage"

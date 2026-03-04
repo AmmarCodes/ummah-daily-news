@@ -1,9 +1,5 @@
 import { EventBridgeHandler } from "aws-lambda";
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} from "@aws-sdk/client-s3";
+import { uploadJSON, downloadJSON } from "../storage";
 import { deduplicate } from "../ai/deduplicate";
 import {
   CollectedNewsDataSchema,
@@ -17,15 +13,9 @@ import {
   PutEventsCommand,
 } from "@aws-sdk/client-eventbridge";
 
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-});
-
 const eventBridgeClient = new EventBridgeClient({
   region: process.env.AWS_REGION || "us-east-1",
 });
-
-const BUCKET_NAME = process.env.S3_BUCKET_NAME!;
 
 export const handler: EventBridgeHandler<
   "NewsCollected",
@@ -37,29 +27,12 @@ export const handler: EventBridgeHandler<
   try {
     console.log("Starting deduplication for:", event.time);
 
-    // Extract S3 details from EventBridge event
-    const bucket = BUCKET_NAME;
     const key = `collected-news/${event.detail.date}.json`;
+    console.log(`Processing object: ${key}`);
 
-    if (!bucket || !key) {
-      throw new Error("Missing bucket or key in EventBridge event detail");
-    }
-
-    console.log(`Processing S3 object: ${bucket}/${key}`);
-
-    // Download the cached data from S3
-    const getObjectCommand = new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    });
-
-    const response = await s3Client.send(getObjectCommand);
-
-    if (!response.Body) {
-      throw new Error("No data received from S3");
-    }
-    const content = await response.Body.transformToString();
-    const collectedNews = CollectedNewsDataSchema.parse(JSON.parse(content));
+    // Download cached data from storage
+    const content = await downloadJSON<unknown>(key);
+    const collectedNews = CollectedNewsDataSchema.parse(content);
 
     const briefing = await getBriefing(collectedNews.date);
     if (!briefing) {
@@ -78,17 +51,10 @@ export const handler: EventBridgeHandler<
       numberOfSources: collectedNews.numberOfSources,
       date: collectedNews.date,
     };
-    // Upload to S3 with date as key
-    const s3Key = key.replace("collected-news", "deduplicated-news");
+    // Upload to storage with date as key
+    const storageKey = key.replace("collected-news", "deduplicated-news");
 
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: s3Key,
-        Body: JSON.stringify(processedNews, null, 2),
-        ContentType: "application/json",
-      })
-    );
+    await uploadJSON(storageKey, processedNews);
     await updateBriefingDeduplicated({
       date: collectedNews.date,
       deduplicatedTime: new Date(),
@@ -105,9 +71,9 @@ export const handler: EventBridgeHandler<
             Detail: JSON.stringify({ date: collectedNews.date }),
           },
         ],
-      })
+      }),
     );
-    console.log(`Successfully uploaded news data to S3: ${s3Key}`);
+    console.log(`Successfully uploaded news data: ${storageKey}`);
   } catch (error) {
     console.error("Error in Deduplicate function:", error);
     throw error;

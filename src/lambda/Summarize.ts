@@ -1,9 +1,5 @@
 import { EventBridgeHandler } from "aws-lambda";
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-} from "@aws-sdk/client-s3";
+import { downloadJSON, uploadJSON } from "../storage";
 import { summarize } from "../ai/summarize";
 import {
   ProcessedNews,
@@ -20,15 +16,9 @@ import {
   PutEventsCommand,
 } from "@aws-sdk/client-eventbridge";
 
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-});
-
 const eventBridgeClient = new EventBridgeClient({
   region: process.env.AWS_REGION || "us-east-1",
 });
-
-const BUCKET_NAME = process.env.S3_BUCKET_NAME!;
 
 export const handler: EventBridgeHandler<
   "NewsDeduplicated",
@@ -40,36 +30,19 @@ export const handler: EventBridgeHandler<
   try {
     console.log("Starting summarization for:", event.time);
 
-    // Extract S3 details from EventBridge event
-    const bucket = BUCKET_NAME;
+    // Extract storage details from EventBridge event
     const key = `deduplicated-news/${event.detail.date}.json`;
 
-    if (!bucket || !key) {
-      throw new Error("Missing bucket or key in EventBridge event detail");
-    }
+    console.log(`Processing storage object: ${key}`);
 
-    console.log(`Processing S3 object: ${bucket}/${key}`);
-
-    // Download the cached data from S3
-    const getObjectCommand = new GetObjectCommand({
-      Bucket: bucket,
-      Key: key,
-    });
-
-    const response = await s3Client.send(getObjectCommand);
-
-    if (!response.Body) {
-      throw new Error("No data received from S3");
-    }
-    const content = await response.Body.transformToString();
-    const deduplicatedNews = SimplifiedNewsWithMetadataSchema.parse(
-      JSON.parse(content)
-    );
+    // Download cached data from storage
+    const content = await downloadJSON<unknown>(key);
+    const deduplicatedNews = SimplifiedNewsWithMetadataSchema.parse(content);
     const briefing = await getBriefing(deduplicatedNews.date);
 
     if (!briefing) {
       throw new Error(
-        `Briefing ${deduplicatedNews.date} not found in database`
+        `Briefing ${deduplicatedNews.date} not found in database`,
       );
     }
     if (briefing.summarizedTime !== undefined) {
@@ -80,8 +53,8 @@ export const handler: EventBridgeHandler<
 
     const summarizedNews = await summarize(
       deduplicatedNews.items.map(
-        (item) => `${item.text}\n\n${item.sources.join("\n")}`
-      )
+        (item) => `${item.text}\n\n${item.sources.join("\n")}`,
+      ),
     );
     const processedNews: ProcessedNews = {
       newsResponse: summarizedNews,
@@ -89,16 +62,10 @@ export const handler: EventBridgeHandler<
       numberOfSources: deduplicatedNews.numberOfSources,
       date: deduplicatedNews.date,
     };
-    const s3Key = key.replace("deduplicated-news", "summarized-news");
+    const storageKey = key.replace("deduplicated-news", "summarized-news");
 
-    await s3Client.send(
-      new PutObjectCommand({
-        Bucket: BUCKET_NAME,
-        Key: s3Key,
-        Body: JSON.stringify(processedNews, null, 2),
-        ContentType: "application/json",
-      })
-    );
+    // Upload to storage (S3 in Lambda, R2 in Workers)
+    await uploadJSON(storageKey, processedNews);
     await updateBriefingSummarizedTime({
       date: deduplicatedNews.date,
       summarizedTime: new Date(),
@@ -115,10 +82,10 @@ export const handler: EventBridgeHandler<
             Detail: JSON.stringify({ date: deduplicatedNews.date }),
           },
         ],
-      })
+      }),
     );
 
-    console.log(`Successfully uploaded news data to S3: ${s3Key}`);
+    console.log(`Successfully uploaded news data to storage: ${storageKey}`);
   } catch (error) {
     console.error("Error in Summarize function:", error);
     throw error;

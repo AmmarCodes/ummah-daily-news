@@ -123,7 +123,7 @@
     {
       "id": "US-003",
       "title": "Set up Cloudflare D1 database for state management",
-      "status": "in_progress",
+      "status": "done",
       "dependsOn": [
         "US-001"
       ],
@@ -137,13 +137,13 @@
         "Negative case: missing D1 binding -> workers runtime error"
       ],
       "startedAt": "2026-03-04T14:13:12.773906+00:00",
-      "completedAt": null,
-      "updatedAt": "2026-03-04T14:13:12.774015+00:00"
+      "completedAt": "2026-03-04T14:21:32.376779+00:00",
+      "updatedAt": "2026-03-04T14:21:32.376672+00:00"
     },
     {
       "id": "US-004",
       "title": "Configure Cloudflare R2 for intermediate storage",
-      "status": "open",
+      "status": "in_progress",
       "dependsOn": [
         "US-001"
       ],
@@ -155,7 +155,10 @@
         "Install @cloudflare/r2",
         "Example: R2 bucket created and configured in wrangler.toml",
         "Negative case: invalid R2 credentials -> R2 API error"
-      ]
+      ],
+      "startedAt": "2026-03-04T14:21:34.453004+00:00",
+      "completedAt": null,
+      "updatedAt": "2026-03-04T14:21:34.453135+00:00"
     },
     {
       "id": "US-005",
