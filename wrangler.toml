@@ -40,3 +40,8 @@ bucket_name = "ummah-short-news"
 
 [triggers]
 crons = ["1 20 * * *"]
+
+[observability]
+[observability.logs]
+enabled = false
+invocation_logs = true
