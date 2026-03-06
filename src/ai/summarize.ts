@@ -4,7 +4,7 @@ import { callLLM, getLLMProvider } from "./getLLMProvider";
 
 const MAX_OUTPUT_TOKENS = 32768; // this is the max tokens for the gpt-4.1 model.
 
-const systemPromptSummarize = `You are a news editor fluent in English and Arabic. You'll be given Arabic news snippets from official sources posted in the last 24 hours.
+const systemPromptSummarize = `You are a news editor fluent in English and Arabic. You'll be given Arabic news snippets from many news sources posted in the last 24 hours.
 Your task is to summarize each news item individually in isolation of the other news items. Follow these rules:
 
 1. News will be given as a JSON array of strings.

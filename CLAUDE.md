@@ -33,7 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-This is a Telegram bot that collects Syrian news from 30+ configured Telegram channels (government and official sources defined in `channels.json`) and posts daily summaries in both English and Arabic with generated banner images. The system uses a modular 5-stage Lambda pipeline architecture with EventBridge for reliable message processing and S3 for stage outputs.
+This is a Telegram bot that collects news from 30+ configured Telegram channels (government and official sources defined in `channels.json`) and posts daily summaries in both English and Arabic with generated banner images. The system uses a modular 5-stage Lambda pipeline architecture with EventBridge for reliable message processing and S3 for stage outputs.
 
 ### AWS Lambda Deployment (Production) - Modular Pipeline Architecture
 
