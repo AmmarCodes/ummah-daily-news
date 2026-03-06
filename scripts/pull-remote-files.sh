@@ -2,13 +2,30 @@
 
 set -e
 
-# make sure commands run in sequence
 set -o pipefail
 
-# read stack name from samconfig.toml
-STACK_NAME=$(grep 'stack_name = ' samconfig.toml | cut -d '"' -f 2)
+if [ -z "$R2_BUCKET_NAME" ]; then
+  echo "R2_BUCKET_NAME is required (example: ummah-short-news)"
+  exit 1
+fi
 
-# fetch the S3 bucket name from the stack
-S3_BUCKET_NAME=$(aws cloudformation describe-stack-resources --stack-name $STACK_NAME --query "StackResources[?ResourceType=='AWS::S3::Bucket'].PhysicalResourceId" --output text)
+OUTPUT_DIR="./cache/remote-files/${R2_BUCKET_NAME}"
+mkdir -p "$OUTPUT_DIR"
 
-aws s3 cp s3://$S3_BUCKET_NAME/ ./cache/remote-files/$S3_BUCKET_NAME --recursive
+echo "Listing objects in R2 bucket: $R2_BUCKET_NAME"
+wrangler r2 object list "$R2_BUCKET_NAME" --json > /tmp/r2-objects.json
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "jq is required to parse object list output"
+  exit 1
+fi
+
+jq -r '.[].key' /tmp/r2-objects.json | while IFS= read -r key; do
+  [ -z "$key" ] && continue
+  target="${OUTPUT_DIR}/${key}"
+  mkdir -p "$(dirname "$target")"
+  echo "Downloading $key"
+  wrangler r2 object get "${R2_BUCKET_NAME}/${key}" --file "$target"
+done
+
+echo "R2 files downloaded to $OUTPUT_DIR"

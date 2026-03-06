@@ -65,7 +65,7 @@ Check the README.md for detailed setup instructions.
 - New news source integrations
 - New dependencies
 - Changes to the AI/LLM integration
-- Changes to the AWS infrastructure
+- Changes to deployment infrastructure
 - New language support beyond English/Arabic
 
 ## Code of Conduct

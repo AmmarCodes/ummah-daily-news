@@ -18,11 +18,6 @@ export interface Env {
   sy_daily_db: D1Database;
 
   /**
-   * EventBridge bus name (for event routing)
-   */
-  BUS_NAME?: string;
-
-  /**
    * Telegram configuration (for posting messages and webhooks)
    */
   TELEGRAM_BOT_TOKEN?: string;
@@ -49,9 +44,6 @@ export interface Env {
   /**
    * Other environment variables
    */
-  AWS_REGION?: string;
-  STATE_TABLE_NAME?: string;
   NODE_OPTIONS?: string;
   NODE_ENV?: string;
-  IS_LAMBDA?: string;
 }

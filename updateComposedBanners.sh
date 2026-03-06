@@ -8,11 +8,21 @@ set -o pipefail
 # Compose banners
 npm run banners:compose
 
-# read stack name from samconfig.toml
-STACK_NAME=$(grep 'stack_name = ' samconfig.toml | cut -d '"' -f 2)
+if [ -z "$R2_BUCKET_NAME" ]; then
+  echo "R2_BUCKET_NAME is required (example: ummah-short-news)"
+  exit 1
+fi
 
-# fetch the S3 bucket name from the stack
-S3_BUCKET_NAME=$(aws cloudformation describe-stack-resources --stack-name $STACK_NAME --query "StackResources[?ResourceType=='AWS::S3::Bucket'].PhysicalResourceId" --output text)
+# Upload composed banners to R2
+if ! command -v wrangler >/dev/null 2>&1; then
+  echo "wrangler CLI is required"
+  exit 1
+fi
 
-# upload the composed banners to the S3 bucket
-aws s3 cp composedBanners s3://$S3_BUCKET_NAME/composedBanners --recursive
+find composedBanners -type f | while IFS= read -r file; do
+  key="composedBanners/${file#composedBanners/}"
+  echo "Uploading $key"
+  wrangler r2 object put "${R2_BUCKET_NAME}/${key}" --file "$file"
+done
+
+echo "Banner upload complete."

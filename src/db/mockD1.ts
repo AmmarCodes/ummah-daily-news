@@ -3,7 +3,7 @@
  *
  * This is a simple in-memory D1 database that stores data in a JSON file
  * in the cache directory (cache/local-d1.json).
- * It's only used when running locally (IS_LAMBDA != "true").
+ * It's only used when running locally.
  * In production, the actual Cloudflare D1 binding is used.
  */
 

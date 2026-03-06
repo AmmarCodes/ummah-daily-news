@@ -404,13 +404,10 @@ FodyWeavers.xsd
 # JetBrains Rider
 *.sln.iml
 *.env
-/lambda
-/lambda/**
 # SpecStory explanation file
 .specstory/.what-is-this.md
 .specstory
 layers
-.aws-sam/**
 /cache
 /cache/**
 /demo

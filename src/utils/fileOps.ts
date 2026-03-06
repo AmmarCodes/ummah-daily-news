@@ -1,6 +1,6 @@
 import type { SimplifiedNewsItem } from "../types";
 
-const SHOULD_SKIP_FILE_OPS = process.env.IS_LAMBDA === "true";
+const SHOULD_SKIP_FILE_OPS = !process.env.DEDUPE_OUTPUT_FOLDER;
 
 export async function writeJSON<T>(data: T, filePath: string): Promise<void> {
   if (SHOULD_SKIP_FILE_OPS) {
@@ -29,8 +29,10 @@ export async function writeNewsToFile(
     return;
   }
 
-  const outputFolder =
-    folder || process.env.DEDUPE_OUTPUT_FOLDER || "./cache/debug";
+  const outputFolder = folder || process.env.DEDUPE_OUTPUT_FOLDER;
+  if (!outputFolder) {
+    return;
+  }
   const batchName = `${String(roundNumber).padStart(2, "0")}-${String(batchNumber || "00").padStart(2, "0")}-${type}.json`;
   const outputPath = `${outputFolder}/${batchName}`;
 
