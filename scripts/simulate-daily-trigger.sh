@@ -2,36 +2,25 @@
 
 set -e
 
-# make sure commands run in sequence
 set -o pipefail
 
-# read stack name from samconfig.toml
-STACK_NAME=$(grep 'stack_name = ' samconfig.toml | cut -d '"' -f 2)
+if [ -z "$WORKER_URL" ]; then
+  echo "WORKER_URL is required (example: https://sy-daily.example.workers.dev)"
+  exit 1
+fi
 
-echo "Stack name: $STACK_NAME"
+if [ -z "$PIPELINE_TRIGGER_TOKEN" ]; then
+  echo "PIPELINE_TRIGGER_TOKEN is required"
+  exit 1
+fi
 
-echo "Fetching CollectFunction name..."
-
-# fetch the name of CollectFunction from the stack
-COLLECT_FUNCTION_NAME=$(aws cloudformation describe-stack-resources \
-  --stack-name "$STACK_NAME" \
-  --query "StackResources[?LogicalResourceId=='CollectFunction'].PhysicalResourceId" \
-  --output text)
-
-echo "CollectFunction name: $COLLECT_FUNCTION_NAME"
-
-echo "Invoking $COLLECT_FUNCTION_NAME asynchronously..."
-
-# invoke the CollectFunction asynchronously and capture response
-INVOCATION_RESPONSE=$(aws lambda invoke \
-  --function-name "$COLLECT_FUNCTION_NAME" \
-  --payload '{}' \
-  --invocation-type Event \
-  --cli-binary-format raw-in-base64-out \
-  /dev/stdout 2>&1 | grep -v '^{' || true)
-
-echo ""
-echo "Response: $INVOCATION_RESPONSE"
-echo ""
-
-echo "✅ CollectFunction invoked successfully"
+echo "Triggering Cloudflare pipeline..."
+RESPONSE=$(curl -sS -X POST \
+  -H "X-Pipeline-Token: ${PIPELINE_TRIGGER_TOKEN}" \
+  "${WORKER_URL}/internal/run-pipeline")
+if command -v jq >/dev/null 2>&1; then
+  echo "$RESPONSE" | jq .
+else
+  echo "$RESPONSE"
+fi
+echo "Pipeline trigger request sent."

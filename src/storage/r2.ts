@@ -2,7 +2,6 @@
  * R2 Storage Utility Module
  *
  * Provides functions for uploading to and downloading from Cloudflare R2 bucket.
- * Replaces S3 operations for the Cloudflare Workers deployment.
  */
 
 import { R2Bucket } from "@cloudflare/workers-types";

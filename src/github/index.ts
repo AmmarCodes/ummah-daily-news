@@ -29,7 +29,7 @@ export async function commitFilesToGitHub(args: AdditiveGitHubCommitDetails) {
   const basePath = (args.basePath ?? "").replace(/^\/+|\/+$/g, ""); // trim slashes
   const commitMessage =
     args.message ||
-    `chore: add ${args.files.length} file(s) to ${basePath || "/"} via Lambda`;
+    `chore: add ${args.files.length} file(s) to ${basePath || "/"}`;
 
   // 1) Get ref (branch tip)
   const refResp = await octokit.git.getRef({

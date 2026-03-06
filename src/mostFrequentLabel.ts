@@ -2,8 +2,8 @@ import { ProcessedNews, NewsItemLabelRelation } from "./types";
 
 /**
  * Get the most frequent label from a list of news items.
- * Used for selecting banner category in the original AWS implementation.
- * In Workers, this is maintained for compatibility but banners have been removed.
+ * Used for selecting banner category in the original deployment.
+ * Maintained for compatibility.
  */
 export function getMostFrequentLabel(processedNews: ProcessedNews): string {
   const items = processedNews.newsResponse.newsItems;

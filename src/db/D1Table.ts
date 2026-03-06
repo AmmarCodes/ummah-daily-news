@@ -2,7 +2,7 @@
  * D1 Database Adapter
  *
  * Provides a simple interface for D1 database operations.
- * This replaces the DynamoDB dynamodb-toolbox Table implementation.
+ * State is stored in Cloudflare D1.
  *
  * Environment Variables:
  * - In local development: Uses mockD1 from src/db/mockD1.ts
@@ -84,12 +84,6 @@ function parseBriefingRow(row: BriefingRow): Briefing {
  * - In Workers runtime: Uses the D1 binding from environment
  */
 export function getDB(): D1Database {
-  if (process.env.IS_LAMBDA === "true") {
-    throw new Error(
-      "D1 database is not available in Lambda environment. Please migrate to Cloudflare Workers.",
-    );
-  }
-
   if (d1Binding) {
     return d1Binding;
   }

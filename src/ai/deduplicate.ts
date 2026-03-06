@@ -21,16 +21,14 @@ async function writeToFile(
   batchNumber?: number
 ) {
   const DEDUPE_OUTPUT_FOLDER = process.env.DEDUPE_OUTPUT_FOLDER;
-  if (!DEDUPE_OUTPUT_FOLDER || process.env.IS_LAMBDA !== "true") {
+  if (!DEDUPE_OUTPUT_FOLDER) {
     return;
   }
 
   const batchName = `${String(roundNumber).padStart(2, "0")}-${
     batchNumber ? String(batchNumber).padStart(2, "0") : "--"
   }`;
-  console.log(
-    `Debug file output disabled in Workers build, skipping write for ${type}-${batchName}.json (${items.length} items)`
-  );
+  console.log(`Writing debug output: ${type}-${batchName}.json (${items.length} items)`);
 }
 
 const systemPromptDeduplicate = `You are a news editor fluent in Arabic. You'll be given a list of news items that may contain duplicates. Your task is to deduplicate the news items. Follow these rules:
